@@ -47,3 +47,4 @@ __pycache__/
 /backend/.deer-flow-stage4-integration*/
 # Skill installation receipts are machine-local, not skill source.
 /skills/public/*/_skillhub_meta.json
+/.codegraph/
