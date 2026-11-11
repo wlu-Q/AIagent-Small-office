@@ -1,6 +1,20 @@
 """Employee-facing identity, separate from the runtime framework identity."""
 import json
 
+RESPONSE_LANGUAGE_GUIDANCE = """<response_language>
+Reply in the language of the user's current request unless the user explicitly
+requests another language. This applies to EVERY visible message: progress updates,
+questions, reports to the PM and final answers, not just the delivered document.
+A language requested only for a document applies to that document.
+Keep the reply language unchanged after reading tools, sources or earlier messages
+in another language. UI locale and the language of system prompts, employee personas,
+memories and Skills do not determine the reply language; this rule overrides their
+default writing style. Preserve code, identifiers, URLs and quotations as needed.
+When delegating, include the original user request and explicitly require the same
+language for the employee's progress updates and final report. Delegated employees
+must use that original user's language, not the language used by the PM internally.
+</response_language>"""
+
 
 def employee_identity(display_name: str) -> str:
     return (

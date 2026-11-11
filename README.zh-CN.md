@@ -20,10 +20,17 @@
 </div>
 
 <p align="center">
-  <img src="docs/assets/readme/office-overview.png" alt="12 人演示办公室：AI 员工在工位、走廊与公共区域之间活动" width="100%">
+  <img src="docs/assets/media/office-live-en.gif" alt="英文界面的 12 人演示办公室：员工在像素办公室里自由活动" width="100%">
 </p>
 
 <p align="center"><sub>工作之外，也让办公室热闹一点。</sub></p>
+
+<p align="center">
+  <a href="docs/assets/media/small-office-tour-en.mp4">观看 65 秒英文演示</a> ·
+  <a href="docs/assets/media/office-en.png">查看静态截图</a>
+</p>
+
+<p align="center"><sub>PM 搜索 GitHub，委派文档专员，交付带来源链接的文档。真实模型执行，剪辑缩短了等待时间。</sub></p>
 
 ---
 

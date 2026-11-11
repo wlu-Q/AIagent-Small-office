@@ -22,7 +22,7 @@ from deerflow.config.app_config import get_app_config
 from deerflow.office.authority import (
     normalize_authority,
 )
-from deerflow.office.identity import employee_identity
+from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE, employee_identity
 from deerflow.office.presentation import FILE_DELIVERY_GUIDANCE
 from deerflow.subagents.config import SubagentConfig
 
@@ -200,7 +200,7 @@ def resolve_employee_subagent_package(
             system_prompt=employee_identity(description) + "\n\n" + FILE_DELIVERY_GUIDANCE + "\n\n" + load_agent_soul(
                 normalized_employee_id,
                 user_id=normalized_user_id,
-            ),
+            ) + "\n\n" + RESPONSE_LANGUAGE_GUIDANCE,
             tools=list(resolved.runtime_names),
             disallowed_tools=['task', 'ask_clarification'],
             skills=list(agent_config.skills or []),

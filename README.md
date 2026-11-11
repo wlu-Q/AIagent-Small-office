@@ -20,10 +20,17 @@ and give the project manager a goal. Follow the work and review the results in o
 </div>
 
 <p align="center">
-  <img src="docs/assets/readme/office-overview.png" alt="A twelve-person demo office with AI employees moving between desks and shared spaces" width="100%">
+  <img src="docs/assets/media/office-live-en.gif" alt="English interface: twelve demo employees moving around the pixel office" width="100%">
 </p>
 
-<p align="center"><sub>A little more life in your working day. Screenshots show the Chinese interface.</sub></p>
+<p align="center"><sub>A little more life in your working day.</sub></p>
+
+<p align="center">
+  <a href="docs/assets/media/small-office-tour-en.mp4">Watch the 65-second demo</a> ·
+  <a href="docs/assets/media/office-en.png">View the screenshot</a>
+</p>
+
+<p align="center"><sub>English demo: the PM searches GitHub, delegates to a documentation specialist, and delivers a document with source links. Real model execution; waiting time is shortened. Some screenshots below show the Chinese interface.</sub></p>
 
 ---
 

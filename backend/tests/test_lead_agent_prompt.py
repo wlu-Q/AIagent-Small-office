@@ -565,6 +565,8 @@ def test_apply_prompt_template_with_skills_includes_metadata(monkeypatch):
 
 
 def test_office_employee_identity_replaces_generic_framework_role(monkeypatch):
+    from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE
+
     monkeypatch.setattr(prompt_module, 'get_skills_prompt_section', lambda **kw: '')
     monkeypatch.setattr(prompt_module, 'get_deferred_tools_prompt_section', lambda **kw: '')
     monkeypatch.setattr(prompt_module, '_build_acp_section', lambda **kw: '')
@@ -577,3 +579,5 @@ def test_office_employee_identity_replaces_generic_framework_role(monkeypatch):
     assert '小小办公室' in role
     assert '金怀瑾' in role
     assert '你是产品经理' in result
+    assert result.endswith(RESPONSE_LANGUAGE_GUIDANCE)
+    assert result.count('<response_language>') == 1

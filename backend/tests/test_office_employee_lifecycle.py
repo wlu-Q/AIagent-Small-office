@@ -376,10 +376,10 @@ async def test_loaded_deerflow_packages_keep_old_prompt_skills_and_model(tmp_pat
     old_skills = list(old.config.skills)
     await service.save_personal_info("frontend-a", {"prompt": "Next run prompt", "skills": []})
     new = resolve_employee_subagent_package("frontend-a", "default", app)
-    from deerflow.office.identity import employee_identity
+    from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE, employee_identity
     from deerflow.office.presentation import FILE_DELIVERY_GUIDANCE
 
-    assert new.config.system_prompt == employee_identity(new.config.description) + "\n\n" + FILE_DELIVERY_GUIDANCE + "\n\nNext run prompt"
+    assert new.config.system_prompt == employee_identity(new.config.description) + "\n\n" + FILE_DELIVERY_GUIDANCE + "\n\nNext run prompt\n\n" + RESPONSE_LANGUAGE_GUIDANCE
     assert new.config.skills == []
     assert old.config.system_prompt == old_prompt != new.config.system_prompt
     assert old.config.skills == old_skills != new.config.skills
