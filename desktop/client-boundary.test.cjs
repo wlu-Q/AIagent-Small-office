@@ -838,7 +838,6 @@ test('repository snapshot retains current docs and minimum verification entrypoi
     'ARCHITECTURE.md',
     'backend/UPSTREAM.md',
     'backend/docs/SETUP.md',
-    '.codegraph/.gitignore',
     'desktop/preload-sandbox-smoke.cjs',
     'desktop/client-render-smoke.cjs',
     'client/src/components/DesktopGatewayBadge.tsx',
