@@ -1,0 +1,655 @@
+{
+  "nod": {
+    "source": "output/imagegen/ethan-actions-20261106-elastic/ethan-nod-elastic.gif",
+    "sourceSha256": "f365d9af046d7caf8a2f42dc5c67dfffc05efb3398c7f1bbb0a1e02aeb6323fb",
+    "frameWidth": 384,
+    "frameHeight": 432,
+    "frameCount": 9,
+    "columns": 4,
+    "anchorX": 192.0,
+    "anchorY": 401,
+    "scale": 0.13068181818181818,
+    "bodyBounds": [
+      [
+        66,
+        49,
+        235,
+        352
+      ],
+      [
+        66,
+        57,
+        235,
+        344
+      ],
+      [
+        60,
+        48,
+        237,
+        353
+      ],
+      [
+        64,
+        74,
+        238,
+        327
+      ],
+      [
+        64,
+        52,
+        237,
+        350
+      ],
+      [
+        64,
+        45,
+        237,
+        357
+      ],
+      [
+        64,
+        52,
+        237,
+        350
+      ],
+      [
+        66,
+        49,
+        235,
+        352
+      ],
+      [
+        66,
+        49,
+        235,
+        352
+      ]
+    ],
+    "contentTop": [
+      49,
+      57,
+      48,
+      74,
+      52,
+      45,
+      52,
+      49,
+      49
+    ],
+    "frameHashes": [
+      "f427ebfc12324a2300bee99f816087476f07c84189d8a7f76b442bbd1f952a70",
+      "4a12b2419f30032462938c7039b6279fb89d987d06cba0f6b1926e10073da4d0",
+      "534282bd2f82506eac4ef1fb74c991c62861d22965306a57237565837ec07008",
+      "df3802e98b4a1594352d5f810202215cdd5188898ef92a8eb004b19af0ba77ab",
+      "aef5baaaa8a66891bec62f3e1d450db883f3faa380a97d05b2f6615a81544190",
+      "339ffe290e85fd6133aa9d0ad7b66c953916cec492610fb810e18c1fbfda2254",
+      "d640bf1a60eca8fc907fdb0a0773d9a162fd02e32c0be45e47dcc738b7131f65",
+      "f427ebfc12324a2300bee99f816087476f07c84189d8a7f76b442bbd1f952a70",
+      "f427ebfc12324a2300bee99f816087476f07c84189d8a7f76b442bbd1f952a70"
+    ],
+    "sourceFps": 7.894736842105263,
+    "playbackFps": 5.894736842105263,
+    "steps": [
+      {
+        "frame": 1,
+        "duration": 161
+      },
+      {
+        "frame": 2,
+        "duration": 161
+      },
+      {
+        "frame": 3,
+        "duration": 268
+      },
+      {
+        "frame": 4,
+        "duration": 161
+      },
+      {
+        "frame": 5,
+        "duration": 107
+      },
+      {
+        "frame": 6,
+        "duration": 161
+      },
+      {
+        "frame": 0,
+        "duration": 120
+      }
+    ]
+  },
+  "scratch": {
+    "source": "output/imagegen/ethan-actions-20261106-elastic/ethan-scratch-elastic.gif",
+    "sourceSha256": "02741d5462e8b3b1a8f74dc0dd29d774cc6ea3b502afb28d6ce2ab9637427763",
+    "frameWidth": 384,
+    "frameHeight": 432,
+    "frameCount": 11,
+    "columns": 4,
+    "anchorX": 192.0,
+    "anchorY": 401,
+    "scale": 0.13031161473087818,
+    "bodyBounds": [
+      [
+        59,
+        48,
+        251,
+        353
+      ],
+      [
+        60,
+        62,
+        251,
+        339
+      ],
+      [
+        31,
+        32,
+        283,
+        369
+      ],
+      [
+        32,
+        33,
+        283,
+        369
+      ],
+      [
+        32,
+        34,
+        283,
+        368
+      ],
+      [
+        32,
+        33,
+        283,
+        369
+      ],
+      [
+        32,
+        34,
+        283,
+        368
+      ],
+      [
+        32,
+        34,
+        281,
+        368
+      ],
+      [
+        60,
+        54,
+        253,
+        348
+      ],
+      [
+        59,
+        48,
+        251,
+        353
+      ],
+      [
+        59,
+        48,
+        251,
+        353
+      ]
+    ],
+    "contentTop": [
+      48,
+      62,
+      32,
+      33,
+      34,
+      33,
+      34,
+      34,
+      54,
+      48,
+      48
+    ],
+    "frameHashes": [
+      "08264a2e29dd285fb6f5544aeda0b550e5b8890b4be441e6119122378e146b61",
+      "1cfdb31aefe48491228a1b53b8a11b6eb30767cf37b450a6120c6be6dfd425c1",
+      "e77387b4205e644b56492c8167a91016c4939bd5fa65729c88658a0dd11f2a7a",
+      "c25f70a1b13d778707df092be9678bd61ef52ea31a9bf2d2de985a970cda87c0",
+      "598eee79c030afcb9dfd50216350e9dce4946152b94a372cd960bf8a468a8420",
+      "c25f70a1b13d778707df092be9678bd61ef52ea31a9bf2d2de985a970cda87c0",
+      "598eee79c030afcb9dfd50216350e9dce4946152b94a372cd960bf8a468a8420",
+      "edd8042b5330baeeff715e8f54e7945707d79a7f3d89b83fe2d19717f4eb171f",
+      "f093734bf29bea7253479d43f26adb61fdfda2a02708f8b23ae13e749c719fe5",
+      "08264a2e29dd285fb6f5544aeda0b550e5b8890b4be441e6119122378e146b61",
+      "08264a2e29dd285fb6f5544aeda0b550e5b8890b4be441e6119122378e146b61"
+    ],
+    "sourceFps": 8.0,
+    "playbackFps": 6.0,
+    "steps": [
+      {
+        "frame": 1,
+        "duration": 160
+      },
+      {
+        "frame": 2,
+        "duration": 213
+      },
+      {
+        "frame": 3,
+        "duration": 160
+      },
+      {
+        "frame": 4,
+        "duration": 160
+      },
+      {
+        "frame": 5,
+        "duration": 160
+      },
+      {
+        "frame": 6,
+        "duration": 160
+      },
+      {
+        "frame": 7,
+        "duration": 160
+      },
+      {
+        "frame": 8,
+        "duration": 160
+      },
+      {
+        "frame": 0,
+        "duration": 120
+      }
+    ]
+  },
+  "clap": {
+    "source": "output/imagegen/ethan-actions-20261106-elastic/ethan-clap-elastic.gif",
+    "sourceSha256": "f11dfcac13ed91eed2885f1e7cfbe9c28adc4663880224b7250d7802a687c9fd",
+    "frameWidth": 384,
+    "frameHeight": 432,
+    "frameCount": 10,
+    "columns": 4,
+    "anchorX": 192.0,
+    "anchorY": 402,
+    "scale": 0.13031161473087818,
+    "bodyBounds": [
+      [
+        69,
+        49,
+        229,
+        353
+      ],
+      [
+        68,
+        64,
+        230,
+        338
+      ],
+      [
+        69,
+        49,
+        229,
+        353
+      ],
+      [
+        68,
+        64,
+        230,
+        338
+      ],
+      [
+        69,
+        47,
+        229,
+        355
+      ],
+      [
+        68,
+        59,
+        230,
+        343
+      ],
+      [
+        69,
+        47,
+        229,
+        355
+      ],
+      [
+        68,
+        56,
+        230,
+        346
+      ],
+      [
+        69,
+        49,
+        229,
+        353
+      ],
+      [
+        69,
+        49,
+        229,
+        353
+      ]
+    ],
+    "contentTop": [
+      49,
+      64,
+      49,
+      64,
+      47,
+      59,
+      47,
+      56,
+      49,
+      49
+    ],
+    "frameHashes": [
+      "cb8e83a19c3045995d8b48b019a6215f2f06e506053498da8ee8a38318e80d49",
+      "a8e055c5a87d6f4f930ea111acfe4e14f6651f15dbea44c6af3fe4156ede2a29",
+      "4fd3ca6f1f9db2183ca67635104095a226081aef0462f7b9c5c1c6ab75e7c851",
+      "010161f135149eabd597b9a1f7e5b5ffc7a1658dd2d06e072f246da722441b99",
+      "9ac54664ebf5cb92f3e1bc1973a2455eac3c650cc508628153ae9f1a56685840",
+      "a92654cc2a99098b0caa03258aa00fee4be9269e2f7eb8b221b5817a20873c3d",
+      "9ac54664ebf5cb92f3e1bc1973a2455eac3c650cc508628153ae9f1a56685840",
+      "f27113106a1da03ff26d60ba3d7ded2568fc41661b63adaf93e466735e35a527",
+      "cb8e83a19c3045995d8b48b019a6215f2f06e506053498da8ee8a38318e80d49",
+      "cb8e83a19c3045995d8b48b019a6215f2f06e506053498da8ee8a38318e80d49"
+    ],
+    "sourceFps": 8.75,
+    "playbackFps": 6.75,
+    "steps": [
+      {
+        "frame": 1,
+        "duration": 156
+      },
+      {
+        "frame": 2,
+        "duration": 156
+      },
+      {
+        "frame": 3,
+        "duration": 104
+      },
+      {
+        "frame": 4,
+        "duration": 207
+      },
+      {
+        "frame": 5,
+        "duration": 104
+      },
+      {
+        "frame": 6,
+        "duration": 156
+      },
+      {
+        "frame": 7,
+        "duration": 156
+      },
+      {
+        "frame": 0,
+        "duration": 120
+      }
+    ]
+  },
+  "stretch": {
+    "source": "output/imagegen/ethan-actions-20261106-elastic/ethan-stretch-elastic.gif",
+    "sourceSha256": "d1fc0c007df126d412ff37c8c770ee39e8293111067175521ba94088ec076619",
+    "frameWidth": 384,
+    "frameHeight": 432,
+    "frameCount": 9,
+    "columns": 4,
+    "anchorX": 192.0,
+    "anchorY": 401,
+    "scale": 0.13068181818181818,
+    "bodyBounds": [
+      [
+        59,
+        49,
+        241,
+        352
+      ],
+      [
+        60,
+        60,
+        241,
+        341
+      ],
+      [
+        60,
+        49,
+        241,
+        352
+      ],
+      [
+        60,
+        47,
+        240,
+        354
+      ],
+      [
+        60,
+        47,
+        240,
+        354
+      ],
+      [
+        60,
+        54,
+        241,
+        347
+      ],
+      [
+        60,
+        58,
+        240,
+        343
+      ],
+      [
+        59,
+        49,
+        241,
+        352
+      ],
+      [
+        59,
+        49,
+        241,
+        352
+      ]
+    ],
+    "contentTop": [
+      49,
+      60,
+      49,
+      47,
+      47,
+      54,
+      58,
+      49,
+      49
+    ],
+    "frameHashes": [
+      "447f4df6b5b1739577e98e1c82666764cd63d98f26b89647773a6c54ac1626f6",
+      "3f9d8c0acd3e1fbee1e10a525be1a910dfc0bc0f76c40478786e2ec503cfedd2",
+      "1240ab4b9fe6949fcc87a0edbf63a0dd63eca75e78fb5c5136e4f16f59a03cf4",
+      "f4dabc31706ec4d39beb6ebedbb0e2aa4e71ce94f40445f7fd665e1823710c4f",
+      "78a040df07455b547d6c74f667c4f3feade7812faaf63fce29df006fbeb1d8e7",
+      "0ace164a670f3a783bc732b1f915b14a2b88a430cd8c4be435abedbc0918ebec",
+      "14f401c2834739d2a4bdb736b0d513ca55ab56bdce5160b5f0ca00d12f186100",
+      "447f4df6b5b1739577e98e1c82666764cd63d98f26b89647773a6c54ac1626f6",
+      "447f4df6b5b1739577e98e1c82666764cd63d98f26b89647773a6c54ac1626f6"
+    ],
+    "sourceFps": 5.555555555555555,
+    "playbackFps": 4.555555555555555,
+    "steps": [
+      {
+        "frame": 1,
+        "duration": 146
+      },
+      {
+        "frame": 2,
+        "duration": 195
+      },
+      {
+        "frame": 3,
+        "duration": 244
+      },
+      {
+        "frame": 4,
+        "duration": 390
+      },
+      {
+        "frame": 5,
+        "duration": 146
+      },
+      {
+        "frame": 6,
+        "duration": 195
+      },
+      {
+        "frame": 0,
+        "duration": 120
+      }
+    ]
+  },
+  "jump": {
+    "source": "output/imagegen/ethan-click-jump-20261106-v2/ethan-click-jump-v2.gif",
+    "sourceSha256": "fe5a75a60a43c15aa59aa9869543827b99ec12c2b91bc941d9f6d146d5d2508c",
+    "frameWidth": 384,
+    "frameHeight": 416,
+    "frameCount": 10,
+    "columns": 4,
+    "anchorX": 192.0,
+    "anchorY": 370,
+    "scale": 0.17293233082706766,
+    "bodyBounds": [
+      [
+        94,
+        104,
+        190,
+        266
+      ],
+      [
+        94,
+        111,
+        192,
+        259
+      ],
+      [
+        92,
+        98,
+        199,
+        272
+      ],
+      [
+        95,
+        84,
+        191,
+        266
+      ],
+      [
+        95,
+        65,
+        191,
+        267
+      ],
+      [
+        94,
+        76,
+        192,
+        273
+      ],
+      [
+        89,
+        100,
+        204,
+        270
+      ],
+      [
+        94,
+        100,
+        191,
+        270
+      ],
+      [
+        94,
+        104,
+        190,
+        266
+      ],
+      [
+        94,
+        104,
+        190,
+        266
+      ]
+    ],
+    "contentTop": [
+      104,
+      111,
+      98,
+      27,
+      13,
+      17,
+      100,
+      100,
+      104,
+      104
+    ],
+    "frameHashes": [
+      "9b3a51d55248b3e713b5c083d66027a65ad1652a8cea47e951f888af80358c31",
+      "4b3ec29f1b9e98636cbd91a24d16562268a36e0a2a9739396e696864549c36e8",
+      "d7d6bece3c89917c16c632b8d0a1909206c962ac7a0f59aef79da5ac71d557e6",
+      "a5e3ec2ee309040edc07cf5c9953e128c677216ac436033141f28dd68cdc4812",
+      "178bbf82013171af46f61c6060a4b79b3d40a78749480d2e36eb47ea3358f9b4",
+      "7aa566e9ff9908c07950b418da04ecf7628af6817d5e2888898903db1d4e098f",
+      "8bda51a8cbc8975d0914cbe45d24055478bf7cca099a4739584120da809a4b18",
+      "2050437c6cb40d473ded22cb574ce83ea3c8f285bbd8259c7c426ec32b1733a5",
+      "9b3a51d55248b3e713b5c083d66027a65ad1652a8cea47e951f888af80358c31",
+      "9b3a51d55248b3e713b5c083d66027a65ad1652a8cea47e951f888af80358c31"
+    ],
+    "sourceFps": 12.5,
+    "playbackFps": 10.5,
+    "steps": [
+      {
+        "frame": 1,
+        "duration": 95
+      },
+      {
+        "frame": 2,
+        "duration": 48
+      },
+      {
+        "frame": 3,
+        "duration": 95
+      },
+      {
+        "frame": 4,
+        "duration": 143
+      },
+      {
+        "frame": 5,
+        "duration": 95
+      },
+      {
+        "frame": 6,
+        "duration": 95
+      },
+      {
+        "frame": 7,
+        "duration": 95
+      },
+      {
+        "frame": 0,
+        "duration": 120
+      }
+    ]
+  }
+}

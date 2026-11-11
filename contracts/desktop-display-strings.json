@@ -1,0 +1,30 @@
+{
+  "gateway": {
+    "browser": "当前是浏览器模式，未连接本地服务器。",
+    "starting": "正在连接服务器...",
+    "launching": "正在启动服务器...",
+    "connected": "服务器已连接",
+    "unavailable": "服务器不可用",
+    "error": "服务器异常",
+    "startupFailed": "服务器启动失败"
+  },
+  "workspace": {
+    "browserDetail": "当前是浏览器模式，暂不支持本地项目绑定。",
+    "unboundDetail": "尚未绑定本地项目。",
+    "bindingDetail": "正在读取后端项目绑定...",
+    "emptyDetail": "当前目录为空，可用于从 0 搭建项目。",
+    "readyDetail": "当前项目：{name}",
+    "refreshFailed": "无法读取当前项目状态。",
+    "bindFailed": "项目绑定失败",
+    "bindSuccess": "本地项目绑定成功",
+    "versionStale": "桌面主进程版本过旧，请完全退出并重新启动小小办公室后再绑定项目。",
+    "selecting": "正在选择并读取本地项目目录..."
+  },
+  "player": {
+    "sitPrompt": "按 E 坐下",
+    "standPrompt": "按 E 起身",
+    "computerPrompt": "按 R 查看工作台",
+    "whiteboardPrompt": "按 R 查看白板",
+    "vendingMachinePrompt": "按 R 来杯咖啡 :)"
+  }
+}

@@ -1,0 +1,71 @@
+[project]
+name = "deerflow-harness"
+version = "2.1.0"
+description = "DeerFlow agent harness framework"
+requires-python = ">=3.12"
+dependencies = [
+    "agent-client-protocol>=0.4.0",
+    "croniter>=6.0.0",
+    "dotenv>=0.9.9",
+    "exa-py>=1.0.0",
+    "httpx>=0.28.0",
+    "langchain>=1.4.9",
+    "langchain-anthropic>=1.7.10",
+    "langchain-deepseek>=1.0.1",
+    "langchain-mcp-adapters>=0.2.2",
+    "langchain-openai>=1.2.1",
+    "langfuse>=3.4.1",
+    "langgraph>=1.2.20",
+    "markdownify>=1.2.2",
+    "markitdown[all,xlsx]>=0.0.1a2",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "readabilipy>=0.3.0",
+    "tavily-python>=0.7.17",
+    "firecrawl-py>=1.15.0",
+    "tiktoken>=0.8.0",
+    "ddgs>=9.10.0",
+    "duckdb>=1.4.4",
+    "langchain-google-genai>=4.2.1",
+    "langgraph-checkpoint-sqlite>=3.1.3",
+    "sqlalchemy[asyncio]>=2.0,<3.0",
+    # greenlet 3.3.2 and 3.4.0 corrupt CPython 3.12 on Windows after a
+    # non-main-thread switch; 3.3.0 is the newest verified safe release for
+    # SQLAlchemy's async bridge in the desktop Gateway lifecycle.
+    "greenlet==3.3.0; sys_platform == 'win32'",
+    "aiosqlite>=0.19",
+    "alembic>=1.13",
+    "cryptography>=50.0.2",
+]
+
+[project.optional-dependencies]
+# GroundRoute needs no extra packages (httpx is already a core dependency). This
+# empty extra exists so the documented `uv add 'deerflow-harness[groundroute]'`
+# install command resolves cleanly without an "unknown extra" warning.
+groundroute = []
+ollama = ["langchain-ollama>=0.3.0"]
+postgres = [
+    "asyncpg>=0.29",
+    "langgraph-checkpoint-postgres>=3.2.0",
+    "psycopg[binary]>=3.3.3",
+    "psycopg-pool>=3.3.0",
+]
+# Cross-process SSE stream bridge. The local product defaults to memory and
+# installs Redis only when this extra is explicitly requested.
+redis = ["redis>=5.0.0"]
+# Container-backed AIO sandboxes are optional; the local desktop runtime uses LocalSandbox.
+aio = ["agent-sandbox>=0.0.19"]
+# Remote E2B sandboxes are optional; the local desktop runtime uses LocalSandbox.
+e2b = ["e2b-code-interpreter>=2.8.0"]
+pymupdf = ["pymupdf4llm>=0.0.17"]
+boxlite = ["boxlite>=0.9.7"]
+# Agent observability (Monocle). Optional so a default install stays free of the
+# OpenTelemetry stack; only pulled in when MONOCLE_TRACING is used.
+monocle = ["monocle_apptrace>=0.8.8"]
+
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["deerflow"]

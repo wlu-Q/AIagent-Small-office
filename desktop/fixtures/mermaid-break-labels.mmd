@@ -1,0 +1,23 @@
+flowchart TD
+    User[访问者]
+
+    User --> Index[index.html<br/>澄江大学校园门户]
+
+    Index --> Styles[styles.css<br/>页面样式与响应式布局]
+    Index --> Script[script.js<br/>导航菜单与滚动交互]
+
+    Index --> About[学校概览]
+    Index --> Schools[院系与专业]
+    Index --> News[校园新闻]
+    Index --> Admissions[招生信息]
+    Index --> Contact[联系方式]
+
+    Admissions --> OpenDay[tools-contract-check.html<br/>校园开放日独立演示页]
+
+    OpenDay --> OpenDayStyle[页面内置 CSS]
+    OpenDay --> OpenDayScript[页面内置 JavaScript]
+    OpenDayScript --> Success[预约成功提示<br/>按钮状态更新并禁用]
+
+    Static[静态文件直接打开<br/>无 HTTP 服务]
+    Index -.-> Static
+    OpenDay -.-> Static

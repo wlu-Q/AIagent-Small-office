@@ -1,0 +1,449 @@
+{
+  "frameWidth": 160,
+  "frameHeight": 172,
+  "frameCount": 48,
+  "frameRate": 20,
+  "scale": 0.5,
+  "anchorX": 84,
+  "anchorY": 122,
+  "neutralTop": 33,
+  "sourceSha256": "b675455df6d1b6e42ee1fe52de4531df5eb7000254405fb7f45bba3891f79ee9",
+  "imageSha256": {
+    "body": "a414cf360f31d83aa3e28f33fb4eccf9b9e16f13f3dd6859de9425cc17d2fed4",
+    "effects": "beac53d4828230e068c08ca114cf16a71b3a53804f9623e2c5f22437ccb0176a"
+  },
+  "frames": [
+    {
+      "source": [
+        0,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        160,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        320,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        480,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        640,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        800,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        960,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        1120,
+        0,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        0,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        160,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        320,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        480,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        640,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        800,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        960,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        1120,
+        172,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        0,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        160,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        320,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        480,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        640,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        800,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        960,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        1120,
+        344,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        0,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        160,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        320,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        480,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        640,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        800,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        960,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        1120,
+        516,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        0,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        160,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        320,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        480,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        640,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        800,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        960,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        1120,
+        688,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        0,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        160,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        320,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        480,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        640,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        800,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        960,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    },
+    {
+      "source": [
+        1120,
+        860,
+        160,
+        172
+      ],
+      "contentTop": 34
+    }
+  ]
+}

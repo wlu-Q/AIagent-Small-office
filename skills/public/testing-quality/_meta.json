@@ -1,0 +1,82 @@
+{
+  "name": "testing-quality",
+  "slug": "testing-quality",
+  "display_name": "测试与质量",
+  "display_name_en": "Testing & QA",
+  "description_zh": "测试与质量（29 个子技能）：TDD 工作流与验证循环、端到端与浏览器 QA、性能基准（Core Web Vitals/API/构建）、AI 回归测试与评测框架，并覆盖 Python、React、Go、Rust、C++、C#、F#、Kotlin、Perl、Swift 及 Django/Laravel/Quarkus/Spring Boot 的多语言测试闭环。",
+  "description_en": "Testing and QA (29 sub-skills): TDD workflows, verification loops, e2e and browser QA, benchmarks, AI regression testing and eval harnesses for Python, Go, Rust and Swift.",
+  "category": "testing",
+  "version": "1.0.0",
+  "author": "zxh",
+  "emoji": "✅",
+  "color": "#0694A2",
+  "tags": [
+    "测试",
+    "TDD",
+    "E2E",
+    "回归测试",
+    "性能基准",
+    "代码质量",
+    "QA",
+    "覆盖率",
+    "验证"
+  ],
+  "examples_zh": [
+    "给这个模块补一套 TDD 测试，先写失败用例再实现",
+    "部署后跑一次浏览器 QA，检查控制台错误和界面回归",
+    "把接口性能做成基准测试，给出优化前后的对比数据"
+  ],
+  "examples_en": [
+    "Write a TDD suite for this module — failing tests first, then the implementation",
+    "Run browser QA after deploy and check console errors and UI regressions",
+    "Benchmark these API endpoints and show before/after numbers"
+  ],
+  "language": [
+    "zh-CN",
+    "en"
+  ],
+  "sub_skills": [
+    "ai-regression-testing",
+    "benchmark",
+    "browser-qa",
+    "codehealth-mcp",
+    "cpp-testing",
+    "csharp-testing",
+    "django-tdd",
+    "django-verification",
+    "e2e-testing",
+    "eval-harness",
+    "fsharp-testing",
+    "golang-testing",
+    "healthcare-eval-harness",
+    "kotlin-testing",
+    "laravel-tdd",
+    "laravel-verification",
+    "perl-testing",
+    "plankton-code-quality",
+    "python-testing",
+    "quarkus-tdd",
+    "quarkus-verification",
+    "react-testing",
+    "repo-scan",
+    "rust-testing",
+    "springboot-tdd",
+    "springboot-verification",
+    "swift-protocol-di-testing",
+    "tdd-workflow",
+    "verification-loop"
+  ],
+  "layout": "flat-two-level",
+  "sub_skill_entry": "references/<sub-skill>.md",
+  "resource_prefix": "<sub-skill>--",
+  "aggregated_from": "skills090522 (origin: ECC)",
+  "delegates_to": {
+    "word": "docx-pro",
+    "excel": "xlsx",
+    "ppt": "pptx",
+    "pdf": "pdf-pro",
+    "markdown": "markdown-md"
+  },
+  "auto_install_missing_delegate": true,
+  "delegate_resolution": "exact-name-match"
+}

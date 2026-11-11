@@ -1,0 +1,9 @@
+{
+  "browser": "gateway.browser",
+  "starting": "gateway.starting",
+  "launching": "gateway.launching",
+  "connected": "gateway.connected",
+  "unavailable": "gateway.unavailable",
+  "error": "gateway.error",
+  "startupFailed": "gateway.startupFailed"
+}

@@ -1,0 +1,56 @@
+{
+  "name": "small-office",
+  "version": "1.0.6",
+  "private": true,
+  "description": "本地单用户多 AI 员工桌面办公室",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
+    "package:win": "node desktop/packaging/build.cjs",
+    "dev": "node desktop/dev.cjs",
+    "dev:check": "node desktop/dev.cjs --check",
+    "runtime:powershell": ".\\backend\\.venv\\Scripts\\python.exe desktop/packaging/prepare-runtimes.py --powershell-only",
+    "test:startup": "node --test desktop/dev-startup.test.cjs",
+    "build": "npm run desktop:client:build",
+    "desktop:client": "cd client && npm run dev",
+    "desktop:client:build": "cd client && npm run build",
+    "desktop:start": "electron .",
+    "desktop:start:dev": "node desktop/dev.cjs",
+    "deerflow:gateway": "node desktop/start-gateway.cjs",
+    "test:desktop-boundary": "node --test desktop/client-boundary.test.cjs desktop/chat-presentation.test.cjs desktop/chat-refresh.test.cjs && electron desktop/preload-sandbox-smoke.cjs",
+    "test:desktop-client": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs && electron desktop/client-render-smoke.cjs --refresh-isolation",
+    "test:chat-refresh": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --refresh-isolation",
+    "test:chat-delivery": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --chat-delivery",
+    "test:model-settings": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --model-settings && node desktop/run-gateway-integration.cjs --model-settings",
+    "test:employee-model": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --employee-model && node desktop/run-gateway-integration.cjs --model-settings",
+    "test:file-preview": "npm run desktop:client:build && node desktop/run-gateway-integration.cjs --file-preview",
+    "test:visualization": "node --test desktop/visualization.test.cjs && npm run desktop:client:build && node desktop/run-gateway-integration.cjs --visualization",
+    "test:library": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --library",
+    "test:minimum": "npm run test:desktop-boundary && npm run test:desktop-client",
+    "test:gateway-integration": "npm run desktop:client:build && node desktop/run-gateway-integration.cjs",
+    "test:task-workspaces": "npm run desktop:client:build && node desktop/run-gateway-integration.cjs --workspaces",
+    "test:terminal": "npm run desktop:client:build && node desktop/run-gateway-integration.cjs --terminal",
+    "test:delivery": "npm run desktop:client:build && node desktop/run-gateway-integration.cjs --delivery",
+    "test:delegation-limits": "npm run desktop:client:build && node desktop/run-gateway-integration.cjs --delegation-limits",
+    "test:i18n": "node client/scripts/check-i18n.cjs && node --test desktop/localization.test.cjs && npm run desktop:client:build && electron desktop/client-render-smoke.cjs --i18n"
+  },
+  "license": "MIT",
+  "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": "24.22.2",
+    "npm": "11.19.1"
+  },
+  "overrides": {
+    "minimatch@>=9 <11.0.1": "11.0.1"
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": false
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0"
+  },
+  "dependencies": {
+    "i18next": "25.8.13"
+  }
+}

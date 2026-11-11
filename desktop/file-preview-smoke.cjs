@@ -1,0 +1,112 @@
+// Real renderer, production IPC and HTTP Gateway with isolated project files.
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+exports.run = async ({ window, api, send, waitFor, endpoint }) => {
+  const { workspace } = await api('/api/office/project')
+  assert.match(workspace.path, /office-stage4-gateway-/)
+  const project = workspace.path
+  const css = '/* 大学校园门户 · 组件样式 */\n.nav { color: #237a65; }\n' + Array.from({ length: 80 }, (_, i) => `.item-${i} { padding: ${i}px; }`).join('\n')
+  fs.writeFileSync(path.join(project, 'components.css'), css)
+  fs.writeFileSync(path.join(project, 'README.md'), '# 校园门户\n\n这里是项目的**使用说明**。\n\n[组件样式](components.css)\n\n<script>window.previewInjected=true</script>')
+  fs.writeFileSync(path.join(project, 'preview.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'))
+  fs.writeFileSync(path.join(project, 'index.html'), '<h1>这是源码</h1><script>window.previewInjected=true</script>')
+  fs.writeFileSync(path.join(project, 'report.docx'), 'unsupported format')
+  const click = selector => window.webContents.executeJavaScript(`document.querySelector(${JSON.stringify(selector)}).click()`)
+  const body = expression => window.webContents.executeJavaScript(expression)
+  const close = async () => {
+    await click('[aria-label="关闭文件预览"]')
+    await waitFor(`!document.querySelector('[data-office-file-preview]')`, 'preview closes')
+  }
+  const open = async name => {
+    await body(`document.querySelector('[data-office-chat-messages] [data-office-file="${name}"]').scrollIntoView({block:'center'})`)
+    await click(`[data-office-chat-messages] [data-office-file="${name}"]`)
+    await waitFor(`document.querySelector('[data-office-file-preview]') && !document.querySelector('[data-office-file-preview]')?.textContent.includes('正在读取文件')`, `preview ${name}`)
+  }
+  await send('E2E_FILE_PREVIEW 把项目说明、样式和页面给我看看，附一下预览地址。')
+  await waitFor(`[...document.querySelectorAll('[data-office-file="components.css"]')].some(item => item.textContent.includes('KB'))`, 'real file metadata in card')
+  const inline = await body(`(() => {
+    const button = [...document.querySelectorAll('[data-office-chat-messages] [data-office-file="components.css"]')]
+      .find(item => item.textContent === '样式文件')
+    return button && {display: getComputedStyle(button).display, label: button.parentElement.textContent,
+      icons: button.querySelectorAll('svg').length}
+  })()`)
+  assert.deepEqual(inline, {display: 'inline-block', label: '我调整了 样式文件，没有改动其他模块。', icons: 0})
+  await body(`[...document.querySelectorAll('[data-office-chat-messages] [data-office-file="components.css"]')].find(item => item.textContent === '样式文件').click()`)
+  await waitFor(`document.querySelector('#file-preview-title')?.textContent === 'components.css'`, 'inline link opens original file')
+  await close()
+  const initialUrl = window.webContents.getURL()
+  await click(`a[href="${endpoint.origin}/test-preview/site"]`)
+  const deadline = Date.now() + 15000
+  let visits = 0
+  while (Date.now() < deadline && !visits) { visits = (await api('/test-preview/visits')).count; await new Promise(resolve => setTimeout(resolve, 150)) }
+  assert.ok(visits > 0, 'default browser really requested the preview address')
+  assert.equal(window.webContents.getURL(), initialUrl, 'chat window does not navigate')
+  console.log('FILE_PREVIEW_BROWSER_OK')
+  window.show(); window.focus()
+  await waitFor('document.hasFocus()', 'return to Office after opening external browser')
+
+  await open('components.css')
+  await waitFor(`document.querySelector('[data-office-code-preview] .view-lines')?.textContent.includes('.nav')`, 'Monaco code text loaded')
+  assert.equal(await body(`document.querySelector('[data-office-code-preview] textarea')?.readOnly`), true)
+  assert.ok(await body(`document.querySelectorAll('[data-office-code-preview] .line-numbers').length > 1`))
+  await click('[aria-label="搜索文件文本"]')
+  await waitFor(`document.querySelector('[data-office-code-preview] .find-widget.visible')`, 'search opens')
+  await click('[aria-label="复制文件内容"]')
+  await waitFor(`document.querySelector('[data-office-file-preview]').textContent.includes('已复制内容')`, 'copy succeeds')
+  assert.equal(require('electron').clipboard.readText().replace(/\r\n/g, '\n'), css)
+  await click('[aria-label="最大化预览"]')
+  await waitFor(`Math.round(document.querySelector('[data-office-file-preview]').getBoundingClientRect().width) === window.innerWidth`, 'maximized width')
+  await click('[aria-label="退出最大化"]')
+  const output = path.resolve(__dirname, '../output/playwright')
+  fs.mkdirSync(output, { recursive: true })
+  fs.writeFileSync(path.join(output, 'file-preview-code.png'), (await window.webContents.capturePage()).toPNG())
+  await close()
+  fs.writeFileSync(path.join(project, 'components.css'), css + '\n/* 最新版本 */')
+  console.log('FILE_PREVIEW_CODE_CONTROLS_OK')
+  await open('components.css')
+  await click('[aria-label="复制文件内容"]')
+  await waitFor(`document.querySelector('[data-office-file-preview]').textContent.includes('已复制内容')`, 'copy reread content')
+  assert.ok(require('electron').clipboard.readText().includes('最新版本'))
+  await close()
+
+  await open('README.md')
+  await waitFor(`document.querySelector('[data-office-file-preview] .reading h1')?.textContent === '校园门户'`, 'Markdown rendered')
+  assert.equal(await body(`!!window.previewInjected`), false)
+  await body(`[...document.querySelectorAll('[data-office-file-preview] .mode button')].find(button=>button.textContent==='源码').click()`)
+  await waitFor(`document.querySelector('[data-office-code-preview] .view-lines')?.textContent.includes('#')`, 'Markdown source mode')
+  await body(`[...document.querySelectorAll('[data-office-file-preview] .mode button')].find(button=>button.textContent==='阅读').click()`)
+  await click('[data-office-file-preview] .reading [data-office-file]')
+  await waitFor(`document.querySelector('#file-preview-title')?.textContent === 'components.css'`, 'relative Markdown file link resolves')
+  assert.equal(await body(`document.querySelectorAll('[data-office-file-preview] [role=tab]').length`), 2, 'same file is not duplicated by slash direction')
+  await click('[aria-label="关闭文件 components.css"]')
+  await waitFor(`document.querySelector('#file-preview-title')?.textContent === 'README.md' && document.querySelectorAll('[data-office-file-preview] [role=tab]').length === 1`, 'closing active tab selects remaining file')
+  await close()
+  await open('preview.png')
+  await waitFor(`document.querySelector('[data-office-file-preview] img')?.naturalWidth === 1`, 'image decoded')
+  await close()
+  await open('index.html')
+  await waitFor(`document.querySelector('[data-office-code-preview] .view-lines')?.textContent.includes('<h1>')`, 'HTML displayed as code')
+  assert.equal(await body(`!!window.previewInjected`), false)
+  await close()
+  await open('report.docx')
+  await waitFor(`document.querySelector('[data-office-file-preview]').textContent.includes('暂不支持预览')`, 'unsupported format has fallback')
+  await close()
+  await open('deleted.txt')
+  await waitFor(`document.querySelector('[data-office-file-preview] [role=alert]')?.textContent.includes('文件不存在')`, 'missing file shown')
+  await close()
+  fs.writeFileSync(path.join(output, 'file-preview-chat.png'), (await window.webContents.capturePage()).toPNG())
+
+  // The old reply must never resolve a relative file against a new project.
+  const other = path.join(project, '../other-preview-project')
+  fs.mkdirSync(other, { recursive: true }); fs.writeFileSync(path.join(other, 'components.css'), 'WRONG PROJECT')
+  const groups = (await api('/api/office/group/messages')).messages
+  const reply = groups.findLast(m => m.sourceRunId && m.content.includes('文件已整理好'))
+  assert.ok(reply)
+  const response = await fetch(new URL('/api/office/project', endpoint), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: other }) })
+  assert.ok(response.ok)
+  const wrong = await fetch(new URL('/api/office/files/preview', endpoint), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: 'components.css', employeeId: 'pm', runId: reply.sourceRunId }) })
+  assert.equal(wrong.status, 400)
+  console.log('FILE_PREVIEW_UI_GATEWAY_OK: external browser, metadata, code, search, copy, maximize, fresh content, tabs, Markdown, image, HTML, missing, unsupported, project boundary')
+}

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="748" viewBox="0 0 1120 748" role="img" aria-labelledby="title description">
+<title id="title">一件工作，怎样在团队里完成？</title><desc id="description">从目标到成果，沟通与执行都围绕同一项工作展开。</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#AABAC5" stroke-width="1.6" stroke-linejoin="round"/></marker></defs>
+<g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+<rect x="1" y="1" width="1118" height="746" rx="24" fill="#FFFBF4" stroke="#E4E5DE"/>
+<rect x="42" y="38" width="10" height="10" fill="#59A99F"/><rect x="57" y="38" width="10" height="10" fill="#E99B85"/><rect x="72" y="38" width="10" height="10" fill="#8BA6CF"/>
+<text x="42" y="89" font-size="30" fill="#24364B" font-weight="700" text-anchor="start">一件工作，怎样在团队里完成？</text>
+<text x="42" y="121" font-size="19" fill="#607387" font-weight="400" text-anchor="start">从目标到成果，沟通与执行都围绕同一项工作展开。</text>
+<path d="M 318 209 H 405" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 705 209 H 790" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 555 267 V 333 H 203 V 383" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 555 333 V 383" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 555 333 H 917 V 383" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 203 489 V 537 H 555 V 573" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 555 489 V 573" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 917 489 V 537 H 555" fill="none" stroke="#AABAC5" stroke-width="2.5" stroke-linejoin="round"/>
+<rect x="42" y="166" width="276" height="100" rx="17" fill="#EDF3FD" stroke="#D5DFE5" stroke-width="1.5"/><rect x="63" y="189" width="8" height="8" rx="1" fill="#287E7B"/><text x="83" y="202" font-size="23" fill="#24364B" font-weight="650" text-anchor="start">你交代目标</text><text x="64" y="234" font-size="19" fill="#607387" font-weight="400" text-anchor="start">在群聊里说明任务与要求</text>
+<rect x="405" y="157" width="300" height="110" rx="17" fill="#E9F5F1" stroke="#D5DFE5" stroke-width="1.5"/><rect x="426" y="180" width="8" height="8" rx="1" fill="#287E7B"/><text x="446" y="193" font-size="23" fill="#24364B" font-weight="650" text-anchor="start">项目经理 PM</text><text x="427" y="225" font-size="19" fill="#607387" font-weight="400" text-anchor="start">理解目标，选择工具与员工</text><text x="427" y="252" font-size="19" fill="#607387" font-weight="400" text-anchor="start">按任务需要决定如何处理</text>
+<rect x="790" y="166" width="288" height="100" rx="17" fill="#FFFFFF" stroke="#D5DFE5" stroke-width="1.5"/><rect x="811" y="189" width="8" height="8" rx="1" fill="#287E7B"/><text x="831" y="202" font-size="23" fill="#24364B" font-weight="650" text-anchor="start">工具与 Skills</text><text x="812" y="234" font-size="19" fill="#607387" font-weight="400" text-anchor="start">PM 也可以直接处理任务</text>
+<text x="42" y="311" font-size="19" fill="#607387" font-weight="400" text-anchor="start">需要分工时按需委派，独立任务可以并行</text>
+<rect x="58" y="383" width="290" height="106" rx="17" fill="#EDF3FD" stroke="#D5DFE5" stroke-width="1.5"/><rect x="79" y="406" width="8" height="8" rx="1" fill="#718EC4"/><text x="99" y="419" font-size="23" fill="#24364B" font-weight="650" text-anchor="start">前端员工</text><text x="80" y="451" font-size="19" fill="#607387" font-weight="400" text-anchor="start">页面、交互与界面实现</text>
+<rect x="410" y="383" width="290" height="106" rx="17" fill="#E9F5F1" stroke="#D5DFE5" stroke-width="1.5"/><rect x="431" y="406" width="8" height="8" rx="1" fill="#287E7B"/><text x="451" y="419" font-size="23" fill="#24364B" font-weight="650" text-anchor="start">后端员工</text><text x="432" y="451" font-size="19" fill="#607387" font-weight="400" text-anchor="start">接口、数据与服务逻辑</text>
+<rect x="772" y="383" width="290" height="106" rx="17" fill="#FFF0E8" stroke="#D5DFE5" stroke-width="1.5"/><rect x="793" y="406" width="8" height="8" rx="1" fill="#D48972"/><text x="813" y="419" font-size="23" fill="#24364B" font-weight="650" text-anchor="start">研究与文档员工</text><text x="794" y="451" font-size="19" fill="#607387" font-weight="400" text-anchor="start">资料整理、说明与文档</text>
+<rect x="355" y="573" width="400" height="101" rx="17" fill="#FFFFFF" stroke="#D5DFE5" stroke-width="1.5"/><rect x="376" y="596" width="8" height="8" rx="1" fill="#287E7B"/><text x="396" y="609" font-size="23" fill="#24364B" font-weight="650" text-anchor="start">结果回到原会话</text><text x="377" y="641" font-size="19" fill="#607387" font-weight="400" text-anchor="start">PM 汇总结果，用户查看文件与过程</text>
+<text x="42" y="716" font-size="18" fill="#607387" font-weight="400" text-anchor="start">岗位仅为分工示例；你也可以直接私聊员工，需要澄清或审批时在界面中处理。</text>
+</g></svg>

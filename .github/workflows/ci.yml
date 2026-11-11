@@ -1,0 +1,87 @@
+name: Windows CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Set up pinned npm
+        run: npm install --global npm@11.19.1
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.11.28'
+          python-version: '3.12.13'
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install desktop dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install client dependencies
+        run: npm --prefix client ci --no-audit --no-fund
+
+      - name: Install backend dependencies
+        run: uv sync --directory backend --locked
+
+      - name: Prepare key-free configuration
+        run: Copy-Item desktop/packaging/defaults/config.yaml config.yaml
+
+      - name: Prepare bundled PowerShell
+        run: npm run runtime:powershell
+
+      - name: Check development prerequisites
+        run: npm run dev:check
+
+      - name: Check desktop and employee interaction logic
+        run: node --test desktop/*.test.cjs client/tests/employee-interaction.test.cjs client/tests/employee-pickup.test.cjs
+
+      - name: Build and check bilingual desktop flows
+        run: npm run test:i18n
+
+      - name: Check first-time setup
+        run: node desktop/run-gateway-integration.cjs --bootstrap
+
+      - name: Check desktop boundaries and rendering
+        run: npm run test:minimum
+
+      - name: Check Office backend and release defaults
+        run: |
+          $env:OFFICE_TEST_JAVA = Join-Path $env:JAVA_HOME_17_X64 'bin/java.exe'
+          $tests = Get-ChildItem backend/tests/test_office_*.py | ForEach-Object { $_.FullName }
+          & .\backend\.venv\Scripts\python.exe -X utf8 -m pytest @tests backend/tests/test_workspace_delivery.py backend/tests/test_firecrawl_tools.py -q --tb=short

@@ -1,0 +1,48 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const test = require('node:test')
+const { createLocalization } = require('./localization.cjs')
+function removeProfile(directory) {
+  const target = path.resolve(directory)
+  assert.ok(target.startsWith(path.resolve(os.tmpdir()) + path.sep + 'office-language-'))
+  fs.rmSync(target, { recursive: true, force: true })
+}
+
+test('language follows the system initially and explicit preference survives restart', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'office-language-'))
+  t.after(() => removeProfile(directory))
+  const locale = createLocalization(directory, 'zh-Hans-CN')
+  assert.equal(locale.getLanguage(), 'zh-CN')
+  assert.equal(locale.t('ui.save'), '保存')
+  locale.setLanguage('en')
+  const restarted = createLocalization(directory, 'zh-CN')
+  assert.equal(restarted.getLanguage(), 'en')
+  assert.equal(restarted.t('ui.save'), 'Save')
+  assert.equal(restarted.t('employees.count', { count: 1 }), '1 employee')
+  assert.equal(restarted.t('employees.count', { count: 2 }), '2 employees')
+  assert.equal(restarted.t('errors.provider_auth').includes('Authentication'), true)
+  assert.throws(() => restarted.setLanguage('../../en'), /Unsupported/)
+  assert.equal(restarted.getLanguage(), 'en')
+  assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'language.json'))).language, 'en')
+})
+
+test('unrecognized system language chooses English; invalid saved preferences are reported', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'office-language-'))
+  t.after(() => removeProfile(directory))
+  assert.equal(createLocalization(directory, 'fr-FR').getLanguage(), 'en')
+  fs.writeFileSync(path.join(directory, 'language.json'), JSON.stringify({ language: 'invalid' }))
+  assert.throws(() => createLocalization(directory, 'en-US'), /Invalid saved language/)
+})
+
+test('a failed preference write keeps the current language', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'office-language-'))
+  t.after(() => removeProfile(directory))
+  const blocked = path.join(directory, 'not-a-directory')
+  fs.writeFileSync(blocked, 'occupied')
+  const locale = createLocalization(blocked, 'zh-CN')
+  assert.throws(() => locale.setLanguage('en'))
+  assert.equal(locale.getLanguage(), 'zh-CN')
+  assert.equal(locale.t('ui.save'), '保存')
+})
