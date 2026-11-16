@@ -62,8 +62,8 @@ jobs:
       - name: Prepare key-free configuration
         run: Copy-Item desktop/packaging/defaults/config.yaml config.yaml
 
-      - name: Prepare bundled PowerShell
-        run: npm run runtime:powershell
+      - name: Prepare bundled runtimes
+        run: npm run runtime:prepare
 
       - name: Check development prerequisites
         run: npm run dev:check
