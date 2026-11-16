@@ -311,13 +311,17 @@ async def test_registry_uses_template_facts_and_excludes_pm_candidates(
             "find-skills",
             "threejs",
         ],
-        "tool_groups": ["file:read", "file:write", "web"],
+        "tool_groups": ["file:read", "file:write", "powershell_terminal", "web"],
         "tools": [
             "apply_patch",
             "glob",
             "grep",
             "image_search",
             "ls",
+            "powershell_list",
+            "powershell_read",
+            "powershell_run",
+            "powershell_stop",
             "present_files",
             "publish_task_result",
             "read_file",
@@ -381,7 +385,7 @@ async def test_pm_registry_reads_current_state_and_separates_busy(tmp_path, monk
     assert result["employees"] == []
     assert [entry["employee_id"] for entry in result["busy_employees"]] == ["frontend-a"]
     assert "tool_groups" not in result["busy_employees"][0]
-    missing = await tool.ainvoke({"required_tools": ["powershell_run"]})
+    missing = await tool.ainvoke({"required_tools": ["ask_clarification"]})
     assert missing == {"employees": [], "busy_employees": [], "tool_catalog": {}, "skill_catalog": {}}
     document = await tool.ainvoke({"required_tools": ["apply_patch"]})
     assert document["busy_employees"][0]["employee_id"] == "frontend-a"
@@ -447,7 +451,7 @@ async def test_pm_search_can_list_all_after_exact_miss_and_still_filter_in_match
     excluded = await query.ainvoke({"mode": "match", "required_tools": ["apply_patch"], "exclude_employee_ids": ["document-a"]})
     assert excluded["employees"] == []
     assert [entry["employee_id"] for entry in excluded["busy_employees"]] == ["frontend-a"]
-    unavailable = await query.ainvoke({"required_tools": ["powershell_run"]})
+    unavailable = await query.ainvoke({"required_tools": ["ask_clarification"]})
     assert unavailable == {"employees": [], "busy_employees": [], "tool_catalog": {}, "skill_catalog": {}}
 
 

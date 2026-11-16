@@ -46,10 +46,10 @@ def test_pinned_archive_replaces_stale_files_and_reuses_verified_cache(runtimes,
     stale = runtimes.RESOURCES / 'node/old.exe'
     stale.parent.mkdir(parents=True)
     stale.write_bytes(b'stale')
-    destination = runtimes.install_zip_runtime('node')
+    destination = runtimes.install_runtime('node', runtimes.RUNTIMES)
     assert not stale.exists()
     assert (destination / 'node.exe').read_bytes() == b'pinned executable'
-    assert runtimes.install_zip_runtime('node') == destination
+    assert runtimes.install_runtime('node', runtimes.RUNTIMES) == destination
     assert downloads == ['https://example.test/node.zip']
 
 
@@ -62,7 +62,7 @@ def test_wrong_digest_is_rejected_before_runtime_replacement(runtimes, monkeypat
         'url': 'https://example.test/node.zip', 'sha256': '0' * 64,
     }})
     with pytest.raises(RuntimeError, match='Checksum mismatch'):
-        runtimes.install_zip_runtime('node')
+        runtimes.install_runtime('node', runtimes.RUNTIMES)
     assert stale.read_bytes() == b'keep'
     assert not (runtimes.CACHE / 'node.zip').exists()
 

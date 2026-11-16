@@ -135,7 +135,7 @@ def test_pm_skill_whitelist_also_applies_to_explicit_slash_activation(pm_factory
     monkeypatch.setattr(module, "build_middlewares", lambda *args, **kwargs: [SkillActivationMiddleware(
         available_skills=kwargs.get("available_skills"), app_config=kwargs["app_config"], user_id="alice",
     )])
-    middleware = build()["middleware"][-1]
+    middleware = next(item for item in build()["middleware"] if isinstance(item, SkillActivationMiddleware))
     result = middleware._resolve_activation("/other do work")
     assert result.activation is None
     assert "not available for this agent" in result.failure_message

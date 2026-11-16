@@ -15,7 +15,7 @@ from deerflow.office.tool_manifest import EmployeeToolManifest, load_tool_manife
 
 @pytest.mark.parametrize('office_managed', [True, False])
 @pytest.mark.parametrize('delegated', [True, False])
-def test_office_omits_loop_heuristic_but_keeps_budgets(office_managed, delegated):
+def test_loop_detection_scope_preserves_runtime_budgets(office_managed, delegated):
     from deerflow.agents.lead_agent.agent import build_middlewares
     from deerflow.agents.middlewares.tool_error_handling_middleware import build_subagent_runtime_middlewares
     from test_office_employee_lifecycle import employee_app_config
@@ -29,7 +29,7 @@ def test_office_omits_loop_heuristic_but_keeps_budgets(office_managed, delegated
     else:
         chain = build_middlewares({'context': {}}, None, app_config=config, office_managed=office_managed)
     names = {type(middleware).__name__ for middleware in chain}
-    assert ('LoopDetectionMiddleware' in names) == (not office_managed)
+    assert ('LoopDetectionMiddleware' in names) == (not office_managed or not delegated)
     assert 'TokenBudgetMiddleware' in names
     if delegated:
         assert 'ModelCallLimitMiddleware' in names

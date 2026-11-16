@@ -20,7 +20,7 @@ def load_script(name):
 def test_prepare_uses_only_public_inputs(tmp_path, monkeypatch):
     prepare = load_script('prepare')
     # A complete minimal source tree, deliberately without private config or DB.
-    for name in ('main.cjs', 'preload.cjs', 'gateway-env.cjs', 'process-lifecycle.cjs', 'dev-startup.cjs', 'packaged-entry.cjs', 'localization.cjs'):
+    for name in ('main.cjs', 'preload.cjs', 'gateway-env.cjs', 'runtime-paths.cjs', 'process-lifecycle.cjs', 'dev-startup.cjs', 'packaged-entry.cjs', 'localization.cjs'):
         path = tmp_path / 'desktop' / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('// fixture', encoding='utf-8')

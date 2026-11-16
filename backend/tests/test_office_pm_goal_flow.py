@@ -165,11 +165,13 @@ def test_two_ask_answers_reach_employee_background(gateway):
 @pytest.mark.parametrize('selected', [False, True])
 def test_pm_todos_follow_saved_selection_without_blocking_final_answer(gateway, selected):
     client, _ = gateway
+    url = '/api/office/employees/pm/tools'
+    current = client.get(url).json()
+    tools = [name for name in current['tools'] if name != 'write_todos']
     if selected:
-        url = '/api/office/employees/pm/tools'
-        current = client.get(url).json()
-        saved = client.put(url, json={'tools': [*current['tools'], 'write_todos'], 'expectedRevision': current['revision']})
-        assert saved.is_success, saved.text
+        tools.append('write_todos')
+    saved = client.put(url, json={'tools': tools, 'expectedRevision': current['revision']})
+    assert saved.is_success, saved.text
     record = wait_run(client, send(client, 'GOAL_TODO Track work, then report the blocker.'))
     assert record['lastAiMessage'] == ('GOAL_TODO_DONE' if selected else 'TODO_TOOL_FAILED')
     assert record['lastEventSeq'] > 0
