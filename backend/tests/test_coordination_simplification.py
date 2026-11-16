@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -7,7 +6,7 @@ import pytest
 from langchain.agents.middleware.types import ModelRequest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from deerflow.agents.middlewares.tool_output_budget_middleware import ToolOutputBudgetMiddleware, _patch_model_inputs
+from deerflow.agents.middlewares.tool_output_budget_middleware import ToolOutputBudgetMiddleware
 from deerflow.config.tool_output_config import ToolOutputConfig
 from deerflow.office import workspace_delivery as delivery
 from deerflow.office.execution_workspace import _git, result_reference
@@ -79,79 +78,28 @@ def history(status='success'):
             ToolMessage(content='Applied other.txt', tool_call_id='recent-call')]
 
 
-def test_history_inputs_are_references_only_in_model_view(tmp_path):
-    messages = history()
-    config = ToolOutputConfig(externalize_min_chars=1000, preview_head_chars=100)
-    state = {'thread_data': {'outputs_path': str(tmp_path), 'office_workspace_id': 'workspace-a'}}
-    view = _patch_model_inputs(messages, config, state)
-    assert view[0] is messages[0]
-    assert view[2] is messages[2]
-    assert view[3] is messages[3]
-    assert view[1].id == messages[1].id
-    assert view[1].tool_calls[0]['id'] == 'old-call'
-    assert len(messages[1].tool_calls[0]['args']['patch']) == 2000
-    assert '/mnt/office-workspaces/workspace-a/outputs/.tool-results/' in view[1].tool_calls[0]['args']['patch']
-    files = list((tmp_path / '.tool-results').iterdir())
-    assert len(files) == 1
-    assert json.loads(files[0].read_text()) == messages[1].tool_calls[0]['args']
-    assert _patch_model_inputs(messages, config, state) == view
-    assert len(list((tmp_path / '.tool-results').iterdir())) == 1
-
-
 @pytest.mark.anyio
 @pytest.mark.parametrize('asynchronous', [False, True])
-async def test_model_entrypoints_externalize_completed_inputs(tmp_path, asynchronous):
-    messages = history()
-    config = ToolOutputConfig(externalize_min_chars=1000, preview_head_chars=100)
-    middleware = ToolOutputBudgetMiddleware(config)
-    request = ModelRequest(model=None, messages=messages, tools=[], state={'thread_data': {'outputs_path': str(tmp_path)}})
-
-    def check(forwarded):
-        assert forwarded is not request
-        assert 'Archived completed tool input' in forwarded.messages[1].tool_calls[0]['args']['patch']
-        assert forwarded.messages[1].tool_calls[0]['id'] == 'old-call'
-        assert forwarded.messages[2].tool_call_id == 'old-call'
-        assert forwarded.messages[3] is messages[3]
-        assert len(messages[1].tool_calls[0]['args']['patch']) == 2000
-        assert len(list((tmp_path / '.tool-results').iterdir())) == 1
+@pytest.mark.parametrize('status', ['success', 'error'])
+async def test_model_entrypoints_preserve_completed_input_prefix(tmp_path, asynchronous, status):
+    messages = history(status)
+    middleware = ToolOutputBudgetMiddleware(ToolOutputConfig(externalize_min_chars=1000, preview_head_chars=100))
+    snapshots = []
+    def record(request):
+        snapshots.append([message.model_dump() for message in request.messages])
         return []
-
-    async def async_handler(forwarded):
-        return check(forwarded)
-
-    if asynchronous:
-        await middleware.awrap_model_call(request, async_handler)
-    else:
-        middleware.wrap_model_call(request, check)
-
-
-def test_old_failure_input_can_be_read_by_reference_without_hiding_error(tmp_path):
-    messages = history('error')
-    messages[-1].status = 'error'
-    config = ToolOutputConfig(externalize_min_chars=1000, preview_head_chars=100)
-    view = _patch_model_inputs(messages, config, {'thread_data': {'outputs_path': str(tmp_path)}})
-    assert 'Archived completed tool input' in view[1].tool_calls[0]['args']['patch']
-    assert view[2] is messages[2]
-    assert view[2].status == 'error'
-    assert view[-2] is messages[-2]
-    assert view[-1] is messages[-1]
-    assert len(view[-2].tool_calls[0]['args']['patch']) == 2000
-
-
-@pytest.mark.parametrize('condition', ['pending', 'no_storage', 'disabled', 'write_failed', 'signed_thinking'])
-def test_history_inputs_keep_ineligible_calls(tmp_path, monkeypatch, condition):
-    messages = history()
-    config = ToolOutputConfig(externalize_min_chars=0 if condition == 'disabled' else 1000)
-    state = {'thread_data': {'outputs_path': str(tmp_path)}}
-    if condition == 'pending':
-        messages.pop(2)
-    if condition == 'no_storage':
-        state = {}
-    if condition == 'write_failed':
-        monkeypatch.setattr('deerflow.agents.middlewares.tool_output_budget_middleware._externalize', lambda *args, **kwargs: None)
-    if condition == 'signed_thinking':
-        messages[1].content = [{'type': 'thinking', 'thinking': 'private', 'signature': 'signature'}]
-    assert _patch_model_inputs(messages, config, state) == messages
+    async def async_record(request):
+        return record(request)
+    for size in [3, len(messages)]:
+        request = ModelRequest(model=None, messages=messages[:size], tools=[],
+                               state={'thread_data': {'outputs_path': str(tmp_path)}})
+        if asynchronous:
+            await middleware.awrap_model_call(request, async_record)
+        else:
+            middleware.wrap_model_call(request, record)
+    assert snapshots[0] == snapshots[1][:3]
+    assert snapshots[1][1]['tool_calls'][0]['args']['patch'] == 'a' * 2000
+    assert not (tmp_path / '.tool-results').exists()
 
 
 def test_missing_required_tool_rejects_before_admission(monkeypatch):

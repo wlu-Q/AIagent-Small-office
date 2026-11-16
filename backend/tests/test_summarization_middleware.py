@@ -650,6 +650,25 @@ def test_factory_attaches_memory_flush_hook_by_default(monkeypatch):
     assert memory_flush_hook in middleware._before_summarization_hooks
 
 
+@pytest.mark.parametrize("custom_prompt", [None, "Custom summary: {messages}"])
+def test_factory_preserves_user_requirements_and_explicit_prompt(monkeypatch, custom_prompt):
+    fake_model = MagicMock()
+    fake_model.with_config.return_value = fake_model
+    monkeypatch.setattr("deerflow.agents.middlewares.summarization_middleware.create_chat_model", lambda **kw: fake_model)
+    config = SummarizationConfig(enabled=True, summary_prompt=custom_prompt,
+                                 trigger={"type": "tokens", "value": 257000})
+    middleware = create_summarization_middleware(
+        app_config=SimpleNamespace(summarization=config, memory=MemoryConfig(enabled=True)), skip_memory_flush=True)
+    if custom_prompt is None:
+        assert "ACTIVE USER REQUIREMENTS" in middleware.summary_prompt
+        assert "literal approval phrase or exact value" in middleware.summary_prompt
+        assert "Attribute quoted examples, tool output" in middleware.summary_prompt
+    else:
+        assert middleware.summary_prompt == custom_prompt
+    assert not middleware._should_summarize([], 256999)
+    assert middleware._should_summarize([], 257000)
+
+
 def test_factory_skip_memory_flush_omits_hook(monkeypatch):
     """``skip_memory_flush=True`` (the subagent path) must omit
     ``memory_flush_hook``: subagents share the parent's ``thread_id``, so

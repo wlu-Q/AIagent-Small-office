@@ -564,6 +564,8 @@ async def test_prepare_recovery_rehydrates_office_employee_model_profiles(
 
 @pytest.mark.anyio
 async def test_prepare_persisted_run_rehydrates_trusted_office_project_context(monkeypatch, tmp_path):
+    from threading import get_ident
+
     from deerflow.office.projects import project_id_for_path
     from deerflow.runtime.context_keys import (
         OFFICE_PROJECT_ID_CONTEXT_KEY,
@@ -587,7 +589,13 @@ async def test_prepare_persisted_run_rehydrates_trusted_office_project_context(m
     record.kwargs = {'launch_contract': launch_contract}
     _install_model_binding(monkeypatch, run_context)
     monkeypatch.setattr(gateway_services, 'get_run_context', lambda _request: run_context)
-    monkeypatch.setattr(gateway_services, 'resolve_agent_factory', lambda _assistant_id: object())
+    event_loop_thread = get_ident()
+
+    def resolve_factory(assistant_id):
+        assert get_ident() != event_loop_thread
+        return object()
+
+    monkeypatch.setattr(gateway_services, 'resolve_agent_factory', resolve_factory)
 
     prepared = await gateway_services.prepare_persisted_run(
         record,

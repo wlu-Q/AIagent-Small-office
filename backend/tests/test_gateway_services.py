@@ -664,12 +664,20 @@ async def _capture_start_run_execution(
     )
     captured: dict[str, object] = {}
 
+    from threading import get_ident
+
+    event_loop_thread = get_ident()
+
+    def resolve_factory(assistant_id):
+        assert get_ident() != event_loop_thread
+        return object()
+
     async def fake_run_agent(*args, **kwargs):
         captured['graph_input'] = kwargs['graph_input']
         captured['config'] = kwargs['config']
 
     with (
-        patch("app.gateway.services.resolve_agent_factory", return_value=object()),
+        patch("app.gateway.services.resolve_agent_factory", side_effect=resolve_factory),
         patch("app.gateway.services.run_agent", side_effect=fake_run_agent),
     ):
         start_kwargs = {}

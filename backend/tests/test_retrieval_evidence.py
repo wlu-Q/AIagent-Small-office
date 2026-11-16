@@ -79,9 +79,9 @@ def test_repeat_compacts_only_request_view_and_keeps_source(environment):
     assert second.additional_kwargs[EVIDENCE_KEY]["execution_count"] == 1
     original = deepcopy([first, second])
     projected = project_evidence([first, second], retrieval_scope(runtime.context))
-    assert "重复查询" in projected[0].content
-    assert "second" in projected[0].content
-    assert projected[1].content == second.content
+    assert "重复查询" in projected[1].content
+    assert "first" in projected[1].content
+    assert projected[0].content == first.content
     assert [first, second] == original
     assert [message.tool_call_id for message in projected] == ["first", "second"]
 
@@ -106,6 +106,24 @@ def test_changed_added_deleted_files_are_searched_again(environment):
     third = invoke(environment)
     assert "package.json" not in third.content
     assert project_evidence([first, second, third], retrieval_scope(runtime.context)) == [first, second, third]
+
+
+def test_repeated_results_preserve_prefix_and_restore_after_compaction(environment):
+    _, _, runtime, _ = environment
+    messages = []
+    previous = []
+    for call_id in ("first", "second", "third"):
+        runtime.tool_call_id = call_id
+        runtime.state["messages"] = list(messages)
+        messages.append(invoke(environment))
+        projected = project_evidence(messages, retrieval_scope(runtime.context))
+        assert projected[:-1] == previous
+        previous = projected
+    assert projected[0].content == messages[0].content
+    assert all("first" in message.content for message in projected[1:])
+    after_compaction = project_evidence(messages[1:], retrieval_scope(runtime.context))
+    assert after_compaction[0].content == messages[1].content
+    assert "second" in after_compaction[1].content
 
 
 def test_empty_partial_error_are_distinct(environment):
@@ -314,8 +332,8 @@ async def test_real_agent_chain_keeps_protocol_and_original_history(environment)
     sent = [message for message in model.inputs[-1] if isinstance(message, ToolMessage)]
     assert len(stored) == len(sent) == 2
     assert "scripts" in stored[0].content and "scripts" in stored[1].content
-    assert "重复查询" in sent[0].content
-    assert "scripts" in sent[1].content
+    assert "scripts" in sent[0].content
+    assert "重复查询" in sent[1].content
     assert [message.tool_call_id for message in sent] == ["call-1", "call-2"]
     assert result["retrieval_evidence"]["entries"]
 

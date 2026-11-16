@@ -8,7 +8,7 @@ import pytest
 from deerflow.community.aio_sandbox.aio_sandbox import AioSandbox
 from deerflow.config.paths import Paths
 from deerflow.sandbox.local.local_sandbox import LocalSandbox, PathMapping
-from deerflow.sandbox.search import GrepMatch, find_glob_matches, find_grep_matches
+from deerflow.sandbox.search import GrepMatch, find_glob_matches, find_grep_matches, path_matches
 from deerflow.sandbox.tools import glob_tool, grep_tool, ls_tool
 
 
@@ -436,15 +436,43 @@ def test_find_glob_matches_raises_not_a_directory(tmp_path) -> None:
         pass
 
 
-def test_find_grep_matches_raises_not_a_directory(tmp_path) -> None:
+def test_find_grep_matches_single_file_pagination_and_filter(tmp_path) -> None:
     file_path = tmp_path / "file.txt"
-    file_path.write_text("TODO\n", encoding="utf-8")
+    file_path.write_text("TODO first\nTODO second\nTODO third\n", encoding="utf-8")
 
-    try:
-        find_grep_matches(file_path, "TODO")
-        assert False, "Expected NotADirectoryError"
-    except NotADirectoryError:
-        pass
+    result = find_grep_matches(file_path, "TODO", offset=1, max_results=1)
+    assert [match.line_number for match in result.matches] == [2]
+    assert result.truncated
+    last = find_grep_matches(file_path, "TODO", offset=2, max_results=1)
+    assert [match.line_number for match in last.matches] == [3]
+    assert not last.truncated
+    assert find_grep_matches(file_path, "TODO", path_filter=lambda path: False).matches == []
+    assert find_grep_matches(file_path, "TODO", glob_pattern="*.py").matches == []
+
+
+@pytest.mark.parametrize("pattern,path,expected", [
+    ("src/**/*.vue", "src/App.vue", True),
+    ("src/**/*.vue", "src/pages/deep/Page.vue", True),
+    ("src/*.vue", "other/src/App.vue", False),
+    ("src/*.vue", "src/pages/App.vue", False),
+    ("**/*.vue", "App.vue", True),
+    ("*.vue", "src/pages/App.vue", True),
+])
+def test_glob_segments_are_anchored_and_recursive(pattern, path, expected):
+    assert path_matches(pattern, path) is expected
+
+
+def test_grep_tool_accepts_single_virtual_file(tmp_path, monkeypatch):
+    runtime = _make_runtime(tmp_path)
+    (tmp_path / "workspace" / "app.py").write_text("TODO first\nTODO second\n", encoding="utf-8")
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized",
+                        lambda runtime: LocalSandbox(id="local:test-user-autouse:thread-1"))
+    result = json.loads(grep_tool.func(runtime=runtime, description="search file", pattern="TODO",
+                                     path="/mnt/user-data/workspace/app.py", offset=1, max_results=1))
+    assert len(result["matches"]) == 1
+    assert result["matches"][0]["path"] == "/mnt/user-data/workspace/app.py"
+    assert result["matches"][0]["line_number"] == 2
+    assert not result["has_more"]
 
 
 def test_find_grep_matches_skips_symlink_outside_root(tmp_path) -> None:
