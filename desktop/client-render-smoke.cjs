@@ -1103,6 +1103,7 @@ async function run() {
       console.log('DESKTOP_QUEUE_VIEWPORT_SMOKE_OK')
       return
     }
+    await waitForRenderer(window, "!document.querySelector('[data-office-chat-window]').getAnimations().some(animation => animation.playState === 'running')", 'chat opening animation finishes before measuring layout')
     const sidebarBefore = await window.webContents.executeJavaScript("document.querySelector('[data-office-chat-window] aside').getBoundingClientRect().width")
     await setEditorText('第一行')
     await window.webContents.executeJavaScript("const editor = document.querySelector('[data-office-message-input]'); editor.focus(); editor.setSelectionRange(editor.value.length, editor.value.length)")

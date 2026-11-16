@@ -1,9 +1,4 @@
-"""Windows process-tree ownership shared by legacy commands and terminal sessions.
-
-The bootstrap joins the kill-on-close job BEFORE starting user code. Closing the
-Gateway (even abruptly) kills the job; descendants cannot outlive its owner.
-Non-Office LocalSandbox command semantics are unchanged.
-"""
+"""Platform process ownership shared by commands and terminal sessions."""
 import ctypes
 import json
 import os
@@ -13,6 +8,7 @@ import time
 import uuid
 import threading
 from ctypes import wintypes
+from pathlib import Path
 
 from deerflow.sandbox.env_policy import build_sandbox_env
 from deerflow.sandbox.local.local_sandbox import DEFAULT_COMMAND_TIMEOUT_SECONDS, LocalSandbox, _validate_extra_env
@@ -53,12 +49,27 @@ sys.exit(subprocess.call(json.loads(sys.argv[2]), stdin=subprocess.DEVNULL))
 '''
 
 
-class ManagedProcess:
+class _CapturedProcess:
+    def _capture_output(self, output_limit, secret_values, tail_bytes):
+        for stream in (self.process.stdout, self.process.stderr):
+            capture = BoundedPipeCapture(limit_bytes=output_limit, secret_values=secret_values, tail_bytes=tail_bytes)
+            reader = threading.Thread(target=LocalSandbox._drain_pipe, args=(os.dup(stream.fileno()), capture), daemon=True)
+            self.captures.append(capture)
+            self.readers.append(reader)
+            reader.start()
+            stream.close()
+
+    def _finish_output(self):
+        for reader in self.readers:
+            reader.join(timeout=5)
+            if reader.is_alive():
+                raise RuntimeError('Managed output reader did not stop')
+
+
+class WindowsManagedProcess(_CapturedProcess):
     """An owned Windows job; user code starts only after joining it."""
 
     def __init__(self, args, *, cwd, env, output_limit=256 * 1024, secret_values=(), tail_bytes=0):
-        if os.name != 'nt':
-            raise RuntimeError('Office terminal requires Windows Job Objects')
         self.kernel = kernel = ctypes.WinDLL('kernel32', use_last_error=True)
         kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
         kernel.CreateJobObjectW.restype = wintypes.HANDLE
@@ -80,13 +91,7 @@ class ManagedProcess:
             self.process = subprocess.Popen([getattr(sys, '_base_executable', sys.executable), '-c', _BOOTSTRAP, self.name, json.dumps(args)],
                 cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 creationflags=subprocess.CREATE_NO_WINDOW)
-            for stream in (self.process.stdout, self.process.stderr):
-                capture = BoundedPipeCapture(limit_bytes=output_limit, secret_values=secret_values, tail_bytes=tail_bytes)
-                reader = threading.Thread(target=LocalSandbox._drain_pipe, args=(os.dup(stream.fileno()), capture), daemon=True)
-                self.captures.append(capture)
-                self.readers.append(reader)
-                reader.start()
-                stream.close()
+            self._capture_output(output_limit, secret_values, tail_bytes)
         except BaseException:
             self.close()
             raise
@@ -117,10 +122,45 @@ class ManagedProcess:
         finally:
             self.kernel.CloseHandle(self.job)
             self.job = None
-        for reader in self.readers:
-            reader.join(timeout=5)
-            if reader.is_alive():
-                raise RuntimeError('Managed output reader did not stop')
+        self._finish_output()
+
+
+class PosixManagedProcess(_CapturedProcess):
+    """A command group supervised through a private owner-lifetime pipe."""
+
+    def __init__(self, args, *, cwd, env, output_limit=256 * 1024, secret_values=(), tail_bytes=0):
+        self.name = None
+        self.process = None
+        self.readers, self.captures = [], []
+        try:
+            self.process = subprocess.Popen(
+                [getattr(sys, '_base_executable', sys.executable),
+                 str(Path(__file__).with_name('posix_command.py')), json.dumps(args)],
+                cwd=cwd, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, start_new_session=True,
+            )
+            self._capture_output(output_limit, secret_values, tail_bytes)
+        except BaseException:
+            self.close()
+            raise
+
+    def done(self):
+        return self.process.poll() is not None
+
+    def close(self):
+        if self.process is None:
+            return
+        self.process.stdin.close()
+        self.process.wait(timeout=10)
+        self._finish_output()
+
+
+def ManagedProcess(args, **kwargs):
+    if os.name == 'nt':
+        return WindowsManagedProcess(args, **kwargs)
+    if os.name == 'posix':
+        return PosixManagedProcess(args, **kwargs)
+    raise RuntimeError(f'Unsupported terminal platform: {sys.platform}')
 
 
 def execute_managed_command(sandbox, command, *, env=None, timeout=None, abort_event=None):

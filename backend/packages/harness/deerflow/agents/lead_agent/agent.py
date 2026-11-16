@@ -414,9 +414,20 @@ def build_middlewares(
         max_total_subagents = cfg.get("max_total_subagents", _default_max_total_subagents(resolved_app_config))
         middlewares.append(SubagentLimitMiddleware(max_concurrent=max_concurrent_subagents, max_total=max_total_subagents))
 
-    # LoopDetectionMiddleware — detect and break repetitive tool call loops
+    # LoopDetectionMiddleware — detect and break repetitive tool call loops.
+    # Office runs used to skip this entirely, which left a failing tool retrying
+    # without any brake (one macOS run reached 100+ grep calls). Delegation limits
+    # bound how many tasks an employee starts, not how often one tool is retried.
     loop_detection_config = resolved_app_config.loop_detection
-    if loop_detection_config.enabled and not office_managed:
+    if loop_detection_config.enabled:
+        if office_managed:
+            # Office work legitimately repeats the same reads across delegations,
+            # so only the identical-call-set thresholds are loosened. The tool
+            # frequency brake is what stops a genuinely stuck retry loop.
+            loop_detection_config = loop_detection_config.model_copy(update={
+                'warn_threshold': max(loop_detection_config.warn_threshold, 6),
+                'hard_limit': max(loop_detection_config.hard_limit, 8),
+            })
         middlewares.append(LoopDetectionMiddleware.from_config(loop_detection_config))
 
     # TokenBudgetMiddleware - enforce per-run token limits
@@ -751,6 +762,9 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     if tool_contract is not None:
         from deerflow.office.tool_guard import EmployeeToolGuard
         employee_guard = [EmployeeToolGuard(resolve_agent_dir(agent_name, user_id=resolved_user_id), tool_contract)]
+    if office_managed_agent:
+        from deerflow.agents.middlewares.retrieval_evidence import RetrievalEvidenceMiddleware
+        middlewares.append(RetrievalEvidenceMiddleware())
     return create_agent(
         model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort, app_config=resolved_app_config, attach_tracing=False),
         tools=final_tools,

@@ -680,6 +680,24 @@ def test_loop_detection_custom_middleware(mock_create_agent):
 
 
 # ---------------------------------------------------------------------------
+# 30d. Office agents keep the loop brake, with loosened identical-set limits
+# ---------------------------------------------------------------------------
+def test_loop_detection_covers_office_agents():
+    from deerflow.agents.lead_agent.agent import build_middlewares
+    from deerflow.config.app_config import AppConfig
+    from deerflow.config.sandbox_config import SandboxConfig
+
+    app_config = AppConfig(sandbox=SandboxConfig(use='test'))
+    office = [m for m in build_middlewares({}, 'probe-model', office_managed=True, app_config=app_config)
+              if type(m).__name__ == 'LoopDetectionMiddleware']
+    assert len(office) == 1
+    # Delegations repeat legitimate reads, so identical sets get extra slack.
+    assert (office[0].warn_threshold, office[0].hard_limit) == (6, 8)
+    # The tool-frequency brake is what stops a failing tool retrying forever.
+    assert office[0].tool_freq_hard_limit == 50
+
+
+# ---------------------------------------------------------------------------
 # 31. plan_mode=True adds TodoMiddleware
 # ---------------------------------------------------------------------------
 @patch("deerflow.agents.factory.create_agent")

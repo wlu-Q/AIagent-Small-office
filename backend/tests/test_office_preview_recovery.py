@@ -79,11 +79,11 @@ def test_query_migration_only_updates_pm_and_keeps_original_choices(tmp_path):
     assert module.migrate(tmp_path, apply=True) == []
 
 
-def test_preview_candidate_is_not_required_listening_port():
+def test_preview_description_requires_reported_port():
     from deerflow.sandbox.powershell_tools import powershell_run
     description = ' '.join(powershell_run.description.split())
-    assert 'Only preview_service supplies $env:OFFICE_PREVIEW_PORT as a suggested port' in description
-    assert 'keep a working service rather than restarting to match that port' in description
+    assert 'the client never receives an allocated port' in description
+    assert 'Keep a working service rather than restarting it' in description
     assert 'source dev server reflects edits' in description
     assert 'build preview needs a rebuild after edits' in description
     assert 'HTTP 200 alone does not prove page functionality or freshness' in description

@@ -5,6 +5,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { backendRoot, gatewayEnv, packagedPython, packagedResources, runtimeHome } = require('./gateway-env.cjs')
 const { stopOwnedProcess } = require('./process-lifecycle.cjs')
+const { developmentPython } = require('./runtime-paths.cjs')
 const { createLocalization, t } = require('./localization.cjs')
 let localization
 
@@ -205,7 +206,7 @@ function gatewayCandidates() {
   const args = ['-m', 'uvicorn', 'app.gateway.app:app', '--host', gatewayHost, '--port', gatewayPort, ...GATEWAY_LOOP_ARGS]
   if (packagedPython) return [{ command: packagedPython, args, label: 'bundled Python' }]
   const candidates = []
-  const venvPython = path.join(backendRoot, '.venv', 'Scripts', 'python.exe')
+  const venvPython = developmentPython(backendRoot, process.platform)
   if (fs.existsSync(venvPython)) candidates.push({ command: venvPython, args, label: 'backend venv' })
   candidates.push({
     command: 'uv',
@@ -308,6 +309,7 @@ async function startManagedGateway() {
       env: gatewayEnv(gatewayHost, gatewayPort),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
+      detached: process.platform === 'darwin',
     })
     // Record ownership immediately: quitting during readiness must stop this tree too.
     bindGatewayProcess(processHandle, candidate.label)
@@ -318,7 +320,7 @@ async function startManagedGateway() {
       lastError = error
       logGatewayEvent('launch-failed', `${candidate.label} ${error.message}`)
       if (processHandle.pid && processHandle.exitCode === null) {
-        stopOwnedProcess(processHandle)
+        stopOwnedProcess(processHandle, { processGroup: process.platform === 'darwin' })
       }
       if (isAppQuitting) throw error
     }
@@ -423,7 +425,8 @@ async function requestGateway(route, { method = 'GET', body } = {}, timeoutMs = 
     }
     return payload
   } catch (error) {
-    if (error?.name === 'AbortError') throw new Error(t('desktop.gateway_request_timed_out_value', { value1: (route) }))
+    if (error?.name === 'AbortError') throw new Error(t(route === '/api/office/bootstrap'
+      ? 'desktop.bootstrap_result_unconfirmed' : 'desktop.gateway_request_timed_out_value', { value1: route }))
     if (error?.cause?.code === 'ECONNREFUSED') {
       gatewayReady = false
       if (!usesExternalGateway && !gatewayProcess) {
@@ -583,10 +586,10 @@ function registerIpcHandlers() {
     requestGateway(`/api/memory/facts/${encodeURIComponent(factId)}`, { method: 'DELETE' })
   ))
   ipcMain.handle('office-desktop:testOfficeBootstrapModel', async (_event, payload) => (
-    requestGateway('/api/office/bootstrap/test-model', { method: 'POST', body: payload })
+    requestGateway('/api/office/bootstrap/test-model', { method: 'POST', body: payload }, MODEL_SETTINGS_REQUEST_TIMEOUT_MS)
   ))
   ipcMain.handle('office-desktop:initializeOfficeBootstrap', async (_event, payload) => (
-    requestGateway('/api/office/bootstrap', { method: 'POST', body: payload })
+    requestGateway('/api/office/bootstrap', { method: 'POST', body: payload }, MODEL_SETTINGS_REQUEST_TIMEOUT_MS)
   ))
   ipcMain.handle('office-desktop:createOfficeEmployee', async (_event, payload) => (
     requestGateway('/api/office/employees', { method: 'POST', body: payload })
@@ -729,7 +732,7 @@ app.on('before-quit', (event) => {
   logGatewayEvent('app-quit', `pid=${process.pid} gatewayPid=${gatewayProcess?.pid ?? 'none'}`)
   isAppQuitting = true
   if (gatewayProcess && gatewayProcess.exitCode === null) {
-    stopOwnedProcess(gatewayProcess)
+    stopOwnedProcess(gatewayProcess, { processGroup: process.platform === 'darwin' })
   }
   if (developmentRenderer && !developmentRendererClosed) {
     event.preventDefault()

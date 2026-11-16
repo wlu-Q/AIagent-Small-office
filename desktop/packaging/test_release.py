@@ -21,7 +21,7 @@ spec.loader.exec_module(installer)
 def desktop_environment(resources):
     env = {**os.environ, 'OFFICE_PACKAGED_RESOURCES': str(resources)}
     result = subprocess.run(
-            [str(RESOURCES / 'node/node.exe'), '-e',
+            [str(RESOURCES / ('node/node.exe' if sys.platform == 'win32' else 'node/bin/node')), '-e',
              "process.stdout.write(JSON.stringify(require('./desktop/gateway-env.cjs').gatewayEnv('127.0.0.1', '8001')))"],
             cwd=ROOT, env=env, capture_output=True, encoding='utf-8', check=True,
     )
@@ -74,6 +74,14 @@ class ReleaseTests(unittest.TestCase):
             self.assertNotIn('office_model_records', config)
             self.assertFalse((data / 'state/users/default/office-bootstrap.yaml').exists())
             library = LibraryService(data / 'state/users/default/office-library')
+            if sys.platform == 'darwin':
+                from keyring.backends.macOS import Keyring
+                account = hashlib.sha256(str(library.root).encode()).hexdigest()
+                def remove_test_key():
+                    keychain = Keyring()
+                    if keychain.get_password('small-office.library', account) is not None:
+                        keychain.delete_password('small-office.library', account)
+                self.addCleanup(remove_test_key)
             for kind in ('embedding', 'rerank'):
                 self.assertFalse(library.settings()[f'{kind}ApiKeyConfigured'])
             self.assertFalse((RESOURCES / 'defaults/library.json').exists())

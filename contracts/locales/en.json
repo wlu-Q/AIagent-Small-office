@@ -509,6 +509,7 @@
   "desktop.gateway_returned_a_non_json_response_http_value": "Gateway returned a non-JSON response (HTTP {{value1}})",
   "desktop.gateway_request_failed_http_value": "Gateway request failed (HTTP {{value1}})",
   "desktop.gateway_request_timed_out_value": "Gateway request timed out: {{value1}}",
+  "desktop.bootstrap_result_unconfirmed": "Setup request timed out; its outcome is unconfirmed. Reload to check the actual state. Setup was not retried automatically.",
   "desktop.this_window_cannot_access_files_or_open_links": "This window cannot access files or open links",
   "desktop.invalid_url": "Invalid URL",
   "desktop.only_http_https_urls_without_credentials_are_allowed": "Only HTTP/HTTPS URLs without credentials are allowed",

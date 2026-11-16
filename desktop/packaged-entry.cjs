@@ -3,6 +3,7 @@ const { app, dialog } = require('electron')
 const fs = require('node:fs')
 const net = require('node:net')
 const path = require('node:path')
+const { runtimePaths, runtimeEnvironment } = require('./runtime-paths.cjs')
 
 async function main() {
   const requestedData = app.commandLine.getSwitchValue('user-data-dir')
@@ -24,14 +25,15 @@ async function main() {
     DEER_FLOW_EXTENSIONS_CONFIG_PATH: path.join(data, 'extensions_config.json'),
     DEER_FLOW_PROJECT_ROOT: data,
     DEER_FLOW_SKILLS_PATH: path.toNamespacedPath(path.join(resources, 'skills')),
-    OFFICE_POWERSHELL_EXECUTABLE: path.join(resources, 'powershell', 'pwsh.exe'),
+    OFFICE_POWERSHELL_EXECUTABLE: runtimePaths(resources).powershell,
     PYTHONNOUSERSITE: '1',
     PYTHONDONTWRITEBYTECODE: '1',
   })
-  const oldPath = process.env.Path || process.env.PATH || ''
-  for (const name of Object.keys(process.env)) if (name.toLowerCase() === 'path') delete process.env[name]
-  process.env.Path = [path.join(resources, 'python'), path.join(resources, 'python', 'Scripts'),
-    path.join(resources, 'node'), path.join(resources, 'git', 'cmd'), path.join(resources, 'powershell'), oldPath].join(path.delimiter)
+  const environment = runtimeEnvironment(resources)
+  if (process.platform === 'win32') {
+    for (const name of Object.keys(process.env)) if (name.toLowerCase() === 'path') delete process.env[name]
+  }
+  Object.assign(process.env, environment)
   // Allocate one loopback endpoint per installation; main checks it before spawning.
   process.env.OFFICE_MANAGED_GATEWAY_PORT = String(await new Promise((resolve, reject) => {
     const probe = net.createServer()

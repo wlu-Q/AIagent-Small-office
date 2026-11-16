@@ -29,6 +29,35 @@ test('employee tool steps expose producer status and original call identity', ()
   }
 })
 
+test('delegated tools render once with employee status across polling batches', () => {
+  const result = (name, id, seq, caller) => project([
+    event('llm.tool.result', { name, tool_call_id: id, status: 'success' }, seq, caller ? { caller } : {}),
+  ])
+  const step = (name, id, employee, task, seq, status) => project([event('subagent.step', {
+    kind: 'tool', employee_id: employee, task_id: task, tool_name: name, tool_call_id: id, status,
+  }, seq, { employee_id: employee, task_id: task })])
+  const read = result('read_file', 'read', 11)
+  const failed = result('ls', 'failed', 18, 'subagent:frontend')
+  assert.equal(read[0].caller, undefined)
+  assert.equal(failed[0].employeeId, 'frontend')
+  const firstPoll = merge([...read, ...failed])
+  const steps = [
+    ...step('read_file', 'read', 'frontend', 'task-a', 15, 'success'),
+    ...step('ls', 'failed', 'frontend', 'task-a', 23, 'error'),
+    ...step('ls', 'parallel', 'frontend-b', 'task-b', 24, 'success'),
+  ]
+  const pmCall = project([event('llm.ai.response', { tool_calls: [{ name: 'ls', id: 'pm-ls', args: {} }] }, 26)])
+  const pmResult = result('ls', 'pm-ls', 27)
+  for (const items of [[...firstPoll, ...steps], [...steps, ...firstPoll]]) {
+    const visible = merge([...items, ...pmCall, ...pmResult])
+    assert.equal(visible.length, 4)
+    assert.equal(visible.find(item => item.callId === 'read').employeeId, 'frontend')
+    assert.equal(visible.find(item => item.callId === 'failed').status, 'error')
+    assert.equal(visible.find(item => item.callId === 'parallel').employeeId, 'frontend-b')
+    assert.equal(visible.find(item => item.callId === 'pm-ls').caller, 'lead_agent')
+  }
+})
+
 test('public reply and commands are projected independently, without tool output JSON', () => {
   const start = project([event('llm.ai.response', {
     id: 'ai-one', content: '老板，已核对代码。',

@@ -1,16 +1,17 @@
 const path = require('node:path')
+const { runtimePaths, runtimeEnvironment } = require('./runtime-paths.cjs')
 
 const packagedResources = process.env.OFFICE_PACKAGED_RESOURCES
 // Keep the extended prefix when Python resolves SUBST drives or deep installs.
 const backendRoot = packagedResources ? path.toNamespacedPath(path.join(packagedResources, 'backend')) : path.resolve(__dirname, '..', 'backend')
-const packagedPython = packagedResources ? path.join(packagedResources, 'python', 'python.exe') : null
+const runtimeRoot = packagedResources || path.resolve(__dirname, '../output/packaging/resources')
+const packagedPython = packagedResources ? runtimePaths(runtimeRoot, process.platform).python : null
 const runtimeHome = process.env.DEER_FLOW_HOME || path.join(backendRoot, '.deer-flow')
 
 function gatewayEnv(host, port) {
   return {
-    ...process.env,
-    OFFICE_POWERSHELL_EXECUTABLE: process.env.OFFICE_POWERSHELL_EXECUTABLE || path.join(
-      packagedResources || path.resolve(__dirname, '../output/packaging/resources'), 'powershell', 'pwsh.exe'),
+    ...(process.platform === 'darwin' ? runtimeEnvironment(runtimeRoot, process.env, process.platform) : process.env),
+    OFFICE_POWERSHELL_EXECUTABLE: process.env.OFFICE_POWERSHELL_EXECUTABLE || runtimePaths(runtimeRoot, process.platform).powershell,
     ...(packagedResources ? { PYTHONHOME: path.toNamespacedPath(path.join(packagedResources, 'python')) } : {}),
     DEER_FLOW_AUTH_DISABLED: process.env.DEER_FLOW_AUTH_DISABLED ?? '1',
     GATEWAY_HOST: host,

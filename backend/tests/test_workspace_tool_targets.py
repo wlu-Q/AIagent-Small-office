@@ -31,12 +31,91 @@ def runtime(delivery_setup, monkeypatch):
         'user_id': work.user_id, 'office_project_id': work.project_id, 'office_work': work.to_record(),
         'office_project_path': str(project), 'office_employee_id': 'integrator', 'agent_name': 'integrator',
         'run_id': 'integration', 'abort_event': threading.Event(),
-    }, state={'thread_data': {'workspace_path': str(project), 'outputs_path': str(service.paths.base_dir / 'outputs')}},
+    }, state={'sandbox': {'sandbox_id': sandbox.id}, 'thread_data': {'workspace_path': str(project), 'outputs_path': str(service.paths.base_dir / 'outputs')}},
         tool_call_id='writeback')
 
 
 def publish(runtime, target=None, sources=None):
     return publish_task_result.func(runtime=runtime, target=target, source_workspace_ids=sources)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('asynchronous', [False, True])
+@pytest.mark.parametrize('name', ['read_file', 'ls', 'glob', 'grep'])
+async def test_read_targets_keep_each_environment_and_runtime_distinct(delivery_setup, runtime, asynchronous, name):
+    service, work, allocate, project, _ = delivery_setup
+    first = service.prepare(allocate('first'), work=work)
+    second = service.prepare(allocate('second'), work=work)
+    runtime.context['office_execution_workspace'] = first
+    for directory, label in [(project, 'project-only'), (Path(first['root_path']), 'first-only'),
+                             (Path(second['root_path']), 'second-only')]:
+        (directory / (label + '.txt')).write_text(label)
+    original_context = dict(runtime.context)
+    original_data = copy.deepcopy(runtime.state['thread_data'])
+    tool = getattr(tools, name + '_tool')
+    for target, label in [('project', 'project-only'), (second['workspace_id'], 'second-only'), (None, 'first-only')]:
+        path = '/mnt/user-data/workspace/' + (label + '.txt' if name == 'read_file' else '')
+        args = dict(runtime=runtime, description='Read selected environment', path=path, target=target)
+        if name in {'glob', 'grep'}:
+            args['pattern'] = '*.txt' if name == 'glob' else label
+        result = await tool.coroutine(**args) if asynchronous else tool.func(**args)
+        assert not str(result).startswith('Error:'), result
+        if name == 'read_file':
+            assert result.status == 'success', result
+        assert label in str(result), result
+    assert runtime.context == original_context
+    assert runtime.state['thread_data'] == original_data
+
+
+def test_read_target_rejects_unknown_workspace(delivery_setup, runtime):
+    result = tools.read_file_tool.func(runtime=runtime, description='Read', path='/mnt/user-data/workspace/index.txt', target='missing')
+    assert 'Error:' in str(result)
+
+
+def test_retrieval_signature_separates_project_and_worktrees(delivery_setup, runtime):
+    from deerflow.agents.middlewares.retrieval_evidence import RetrievalEvidenceMiddleware
+    service, work, allocate, project, _ = delivery_setup
+    workspace = service.prepare(allocate('separate'), work=work)
+    for directory in (project, Path(workspace['root_path'])):
+        (directory / 'same.txt').write_text('identical observed text')
+    runtime.context['office_execution_workspace'] = workspace
+    middleware = RetrievalEvidenceMiddleware()
+    signatures = []
+    for target in (None, 'project'):
+        args = dict(description='read', path='/mnt/user-data/workspace/same.txt', target=target)
+        request = SimpleNamespace(runtime=runtime, state=runtime.state,
+                                  tool_call={'name': 'read_file', 'args': args})
+        message = middleware.wrap_tool_call(request, lambda request: tools.read_file_tool.func(runtime=runtime, **args))
+        assert message.content == 'identical observed text'
+        signatures.append(message.additional_kwargs['office_retrieval']['request_signature'])
+    assert len(set(signatures)) == 2
+
+
+@pytest.mark.parametrize('name', ['read_file', 'ls', 'glob', 'grep'])
+def test_skill_wrappers_preserve_read_target_schema(name):
+    from deerflow.skills.access import bind_skill_read_tools
+    original = getattr(tools, name + '_tool')
+    wrapped = bind_skill_read_tools([original], [], app_config=SimpleNamespace())[0]
+    assert wrapped.args['target'] == original.args['target']
+    assert wrapped.args['target']['default'] is None
+
+
+def test_read_target_rejects_foreign_project(delivery_setup, runtime):
+    service, work, allocate, _, _ = delivery_setup
+    source = service.prepare(allocate(), work=work)
+    runtime.context['office_project_id'] = 'different-project'
+    result = tools.read_file_tool.func(runtime=runtime, description='Read',
+        path='/mnt/user-data/workspace/index.txt', target=source['workspace_id'])
+    assert 'ownership mismatch' in str(result)
+
+
+def test_scoped_read_reference_is_not_retargeted(delivery_setup, runtime):
+    service, work, allocate, _, _ = delivery_setup
+    source = service.prepare(allocate(), work=work)
+    Path(source['root_path'], 'scoped.txt').write_text('scoped-source')
+    result = tools.read_file_tool.func(runtime=runtime, description='Read source', target='project',
+        path=f"/mnt/office-workspaces/{source['workspace_id']}/workspace/scoped.txt")
+    assert 'scoped-source' in str(result)
 
 
 @pytest.mark.asyncio

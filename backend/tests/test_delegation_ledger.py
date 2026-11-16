@@ -402,8 +402,10 @@ class TestRenderDelegationLedger:
 
         out = render_delegation_ledger(entries)
 
-        assert "guardrail cap" in out
-        assert "partial result" in out
+        assert "execution stopped early" in out
+        assert "without repeating successful operations" in out
+        assert "existing workspace" in out
+        assert "raise the budget" not in out
         # The clean-completion wording is NOT used for a capped run.
         assert "reuse this result" not in out
 

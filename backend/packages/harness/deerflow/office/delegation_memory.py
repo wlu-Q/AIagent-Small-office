@@ -109,7 +109,7 @@ def execution_evidence(store, workspace: dict | None, *, work, employee_id: str,
     for value in values[:6]:
         detail = {key: value.get(key) for key in ('execution_id', 'status', 'exit_code')}
         if value.get('purpose') == 'preview_service':
-            detail.update({key: value.get(key) for key in ('purpose', 'resolved_cwd', 'preview_port')})
+            detail.update({key: value.get(key) for key in ('purpose', 'resolved_cwd')})
         details.append(detail)
     summary = dict(project_id=work.project_id, recorded_at=datetime.now(UTC).isoformat(),
                    total_executions=len(values), status_counts=dict(Counter(v['status'] for v in values)),

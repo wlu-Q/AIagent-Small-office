@@ -1261,14 +1261,18 @@ def _apply_cwd_prefix(
     return command
 
 
-def get_thread_data(runtime: Runtime | None) -> ThreadDataState | None:
+def get_thread_data(runtime: Runtime | None, target: str | None = None) -> ThreadDataState | None:
     """Extract thread_data from runtime state."""
     if runtime is None:
         return None
     if runtime.state is None:
         return None
-    from deerflow.office.execution_workspace import resolve_thread_data
-    return resolve_thread_data(runtime.context or {}, runtime.state.get("thread_data"))
+    from deerflow.office.execution_workspace import execution_environment, resolve_thread_data
+    context = runtime.context or {}
+    if target is not None:
+        _, _, workspace = execution_environment(context, target=target)
+        context = {**context, 'office_execution_workspace': workspace if workspace['workspace_id'] else None}
+    return resolve_thread_data(context, runtime.state.get("thread_data"))
 
 
 def is_local_sandbox(runtime: Runtime | None) -> bool:
@@ -1637,12 +1641,13 @@ bash_tool.coroutine = _bash_tool_async
 
 
 @tool("ls", parse_docstring=True)
-def ls_tool(runtime: Runtime, description: str, path: str) -> str:
+def ls_tool(runtime: Runtime, description: str, path: str, target: str | None = None) -> str:
     """List the contents of a directory up to 2 levels deep in tree format.
 
     Args:
         description: Explain why you are listing this directory in short words. ALWAYS PROVIDE THIS PARAMETER FIRST.
         path: The **absolute** path to the directory to list.
+        target: Optional project or existing workspace ID for /mnt/user-data paths. Omit for the task environment. Scoped workspace references and Skill paths keep their explicit location.
     """
     try:
         user_id = resolve_runtime_user_id(runtime)
@@ -1655,7 +1660,7 @@ def ls_tool(runtime: Runtime, description: str, path: str) -> str:
         requested_path = path
         thread_data = None
         if is_local_sandbox(runtime):
-            thread_data = get_thread_data(runtime)
+            thread_data = get_thread_data(runtime, target)
             validate_local_tool_path(path, thread_data, read_only=True)
             if _is_skills_path(path) or _is_acp_workspace_path(path):
                 # Skills and ACP workspace paths are resolved by the sandbox's
@@ -1667,9 +1672,10 @@ def ls_tool(runtime: Runtime, description: str, path: str) -> str:
             elif not _is_custom_mount_path(path):
                 path = _resolve_and_validate_user_data_path(path, thread_data)
             # Custom mount paths and skills/ACP paths are resolved by LocalSandbox._resolve_path()
+        from deerflow.sandbox.retrieval import retrieval_result
         children = sandbox.list_dir(path)
         if not children:
-            return "(empty)"
+            return retrieval_result(runtime, "ls", "(empty)", max_depth=2, content_truncated=False)
         output = "\n".join(children)
         if thread_data is not None:
             output = mask_local_paths_in_output(output, thread_data, read_path=(path, requested_path))
@@ -1677,7 +1683,7 @@ def ls_tool(runtime: Runtime, description: str, path: str) -> str:
         # children, so a root above a disabled skill still exposes its files.
         entries = _drop_disabled_skill_paths(output.splitlines(), user_id=user_id)
         if not entries:
-            return "(empty)"
+            return retrieval_result(runtime, "ls", "(empty)", max_depth=2, content_truncated=False)
         output = "\n".join(entries)
         try:
             from deerflow.config.app_config import get_app_config
@@ -1686,7 +1692,8 @@ def ls_tool(runtime: Runtime, description: str, path: str) -> str:
             max_chars = sandbox_cfg.ls_output_max_chars if sandbox_cfg else 20000
         except Exception:
             max_chars = 20000
-        return _truncate_ls_output(output, max_chars)
+        displayed = _truncate_ls_output(output, max_chars)
+        return retrieval_result(runtime, "ls", displayed, max_depth=2, content_truncated=displayed != output)
     except SandboxError as e:
         return f"Error: {e}"
     except FileNotFoundError:
@@ -1697,8 +1704,8 @@ def ls_tool(runtime: Runtime, description: str, path: str) -> str:
         return f"Error: Unexpected error listing directory: {_sanitize_error(e, runtime)}"
 
 
-async def _ls_tool_async(runtime: Runtime, description: str, path: str) -> str:
-    return await _run_sync_tool_after_async_sandbox_init(ls_tool.func, runtime, description, path)
+async def _ls_tool_async(runtime: Runtime, description: str, path: str, target: str | None = None) -> str:
+    return await _run_sync_tool_after_async_sandbox_init(ls_tool.func, runtime, description, path, target)
 
 
 ls_tool.coroutine = _ls_tool_async
@@ -1712,6 +1719,7 @@ def glob_tool(
     path: str,
     include_dirs: bool = False,
     max_results: int = _DEFAULT_GLOB_MAX_RESULTS,
+    target: str | None = None,
 ) -> str:
     """Find files or directories that match a glob pattern under a root directory.
 
@@ -1721,6 +1729,7 @@ def glob_tool(
         path: The **absolute** root directory to search under.
         include_dirs: Whether matching directories should also be returned. Default is False.
         max_results: Maximum number of paths to return. Default is 200.
+        target: Optional project or existing workspace ID for /mnt/user-data paths. Omit for the task environment. Scoped workspace references and Skill paths keep their explicit location.
     """
     try:
         user_id = resolve_runtime_user_id(runtime)
@@ -1739,7 +1748,7 @@ def glob_tool(
         )
         thread_data = None
         if is_local_sandbox(runtime):
-            thread_data = get_thread_data(runtime)
+            thread_data = get_thread_data(runtime, target)
             if thread_data is None:
                 raise SandboxRuntimeError("Thread data not available for local sandbox")
             path = _resolve_local_read_path(path, thread_data)
@@ -1749,7 +1758,9 @@ def glob_tool(
         # The gate above only covers `path` itself; the search descends into it,
         # so a root above a disabled skill still surfaces its files.
         matches = _drop_disabled_skill_paths(matches, user_id=user_id)
-        return _format_glob_results(requested_path, matches, truncated)
+        from deerflow.sandbox.retrieval import retrieval_result
+        return retrieval_result(runtime, "glob", _format_glob_results(requested_path, matches, truncated),
+                                has_more=truncated)
     except SandboxError as e:
         return f"Error: {e}"
     except FileNotFoundError:
@@ -1769,6 +1780,7 @@ async def _glob_tool_async(
     path: str,
     include_dirs: bool = False,
     max_results: int = _DEFAULT_GLOB_MAX_RESULTS,
+    target: str | None = None,
 ) -> str:
     return await _run_sync_tool_after_async_sandbox_init(
         glob_tool.func,
@@ -1778,6 +1790,7 @@ async def _glob_tool_async(
         path,
         include_dirs,
         max_results,
+        target,
     )
 
 
@@ -1795,10 +1808,11 @@ def grep_tool(
     case_sensitive: bool = False,
     max_results: Annotated[int | None, Field(ge=1, le=300)] = None,
     offset: Annotated[int, Field(ge=0)] = 0,
+    target: str | None = None,
 ) -> str:
     """Search for matching lines inside text files under a root directory.
 
-    Returns paths, line numbers and text, plus has_more and next_offset. To continue,
+    Returns paths, line numbers and matching excerpts, plus has_more and next_offset. Long lines are shortened; read_file supplies the original text. To continue,
     keep the same query and pass next_offset as offset. Identical calls start at the
     same position; description does not execute pagination, extraction or deduplication.
     Use read_file with start_line/end_line to inspect a known file or line range.
@@ -1814,6 +1828,7 @@ def grep_tool(
         case_sensitive: Whether matching is case-sensitive. Default is False.
         max_results: Matching lines per page, 1 to 300. Omit to use the configured default (normally 100); an explicit value overrides that default.
         offset: Number of matching lines to skip, starting at 0. Use the previous next_offset; this is not a file line number.
+        target: Optional project or existing workspace ID for /mnt/user-data paths. Omit for the task environment. Scoped workspace references and Skill paths keep their explicit location.
     """
     try:
         user_id = resolve_runtime_user_id(runtime)
@@ -1831,7 +1846,7 @@ def grep_tool(
         )
         thread_data = None
         if is_local_sandbox(runtime):
-            thread_data = get_thread_data(runtime)
+            thread_data = get_thread_data(runtime, target)
             if thread_data is None:
                 raise SandboxRuntimeError("Thread data not available for local sandbox")
             path = _resolve_local_read_path(path, thread_data)
@@ -1858,8 +1873,13 @@ def grep_tool(
         # so a root above a disabled skill still surfaces its file contents.
         allowed = set(_drop_disabled_skill_paths([match.path for match in matches], user_id=user_id))
         matches = [match for match in matches if match.path in allowed]
-        return _format_grep_results(requested_path, matches, result.truncated, result.skipped_long_lines,
-                                    result.skipped_files, offset, offset + len(result.matches) if result.truncated else None)
+        from deerflow.sandbox.retrieval import retrieval_result
+        next_offset = offset + len(result.matches) if result.truncated else None
+        content = _format_grep_results(requested_path, matches, result.truncated, result.skipped_long_lines,
+                                      result.skipped_files, offset, next_offset)
+        return retrieval_result(runtime, "grep", content, has_more=result.truncated, next_offset=next_offset,
+                                skipped_files=result.skipped_files, skipped_lines=result.skipped_long_lines, offset=offset,
+                                content_scope="matching_line_excerpts")
     except SandboxError as e:
         return f"Error: {e}"
     except FileNotFoundError:
@@ -1884,6 +1904,7 @@ async def _grep_tool_async(
     case_sensitive: bool = False,
     max_results: int | None = None,
     offset: int = 0,
+    target: str | None = None,
 ) -> str:
     return await _run_sync_tool_after_async_sandbox_init(
         grep_tool.func,
@@ -1896,13 +1917,14 @@ async def _grep_tool_async(
         case_sensitive,
         max_results,
         offset,
+        target,
     )
 
 
 grep_tool.coroutine = _grep_tool_async
 
 
-def read_current_file_content(runtime: Runtime | None, path: str) -> str:
+def read_current_file_content(runtime: Runtime | None, path: str, target: str | None = None) -> str:
     """Read the full current content of ``path`` using read_file's resolution rules.
 
     Shared by ``read_file_tool`` and ``ReadBeforeWriteMiddleware`` (issue #3857)
@@ -1913,7 +1935,7 @@ def read_current_file_content(runtime: Runtime | None, path: str) -> str:
     sandbox = ensure_sandbox_initialized(runtime)
     ensure_thread_directories_exist(runtime)
     if is_local_sandbox(runtime):
-        thread_data = get_thread_data(runtime)
+        thread_data = get_thread_data(runtime, target)
         validate_local_tool_path(path, thread_data, read_only=True)
         if _is_acp_workspace_path(path):
             path = _resolve_acp_workspace_path(path, _extract_thread_id_from_thread_data(thread_data))
@@ -1930,6 +1952,7 @@ def read_file_tool(
     path: str,
     start_line: int | None = None,
     end_line: int | None = None,
+    target: str | None = None,
 ) -> str:
     """Read the contents of a text file. Use this to examine source code, configuration files, logs, or any text-based file.
 
@@ -1938,6 +1961,7 @@ def read_file_tool(
         path: The **absolute** path to the file to read.
         start_line: Optional starting line number (1-indexed, inclusive). Use with end_line to read a specific range.
         end_line: Optional ending line number (1-indexed, inclusive). Use with start_line to read a specific range.
+        target: Optional project or existing workspace ID for /mnt/user-data paths. Omit for the task environment. Scoped workspace references and Skill paths keep their explicit location.
     """
     try:
         # Block access to disabled skill files
@@ -1945,17 +1969,13 @@ def read_file_tool(
             skill_name = _extract_skill_name_from_skills_path(path) or "unknown"
             return f"Error: Skill '{skill_name}' is disabled. Access to its files is blocked. Enable the skill in settings before using it."
         requested_path = path
-        content = read_current_file_content(runtime, path)
-        def success(text):
+        content = read_current_file_content(runtime, path, target)
+        def success(text, truncated=False):
             if not (runtime.context or {}).get('office_work') or not is_local_sandbox(runtime):
                 return text
-            from langchain_core.messages import ToolMessage
-            from dataclasses import asdict
-            from deerflow.agents.middlewares.tool_result_meta import TOOL_META_KEY, ToolResultMeta
-            return ToolMessage(content=text, name='read_file', tool_call_id=runtime.tool_call_id,
-                               status='success', additional_kwargs={TOOL_META_KEY: asdict(ToolResultMeta(
-                                   status='success', error_type=None, recoverable_by_model=True,
-                                   recommended_next_action='continue', source='tool_return'))})
+            from deerflow.sandbox.retrieval import retrieval_result
+            return retrieval_result(runtime, "read_file", text, start_line=start_line, end_line=end_line,
+                                    content_truncated=truncated)
         if not content:
             return success("(empty)")
         if start_line is not None or end_line is not None:
@@ -1976,7 +1996,8 @@ def read_file_tool(
             max_chars = sandbox_cfg.read_file_output_max_chars if sandbox_cfg else 50000
         except Exception:
             max_chars = 50000
-        return success(_truncate_read_file_output(content, max_chars))
+        displayed = _truncate_read_file_output(content, max_chars)
+        return success(displayed, displayed != content)
     except SandboxError as e:
         return f"Error: {e}"
     except FileNotFoundError:
@@ -2001,8 +2022,9 @@ async def _read_file_tool_async(
     path: str,
     start_line: int | None = None,
     end_line: int | None = None,
+    target: str | None = None,
 ) -> str:
-    return await _run_sync_tool_after_async_sandbox_init(read_file_tool.func, runtime, description, path, start_line, end_line)
+    return await _run_sync_tool_after_async_sandbox_init(read_file_tool.func, runtime, description, path, start_line, end_line, target)
 
 
 read_file_tool.coroutine = _read_file_tool_async

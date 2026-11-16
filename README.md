@@ -9,7 +9,7 @@
 A pixel office running on your computer. Hire AI employees, connect your own models,<br>
 and give the project manager a goal. Follow the work and review the results in one window.
 
-**Windows x64 · English / 简体中文 · MIT**
+**Windows x64 · macOS 15+ (Apple Silicon) · English / 简体中文 · MIT**
 
 [About](#about) · [Build your team](#team) · [Get started](#quick-start) · [Models](#models) · [Development](#development)
 
@@ -112,7 +112,7 @@ Embedding and reranking models are configured separately from chat models. The l
 
 ## Get started
 
-Small Office runs on **Windows x64**. Clone the repository and follow the [source setup instructions](#development), then use the steps below to start your first task.
+Small Office runs on **Windows x64** and **macOS 15+ on Apple Silicon (arm64)**. Clone the repository and follow the [source setup instructions](#development), then use the steps below to start your first task.
 
 ### Start your first task in four steps
 
@@ -153,7 +153,7 @@ Use the pinned toolchain and the repository's lockfiles.
 | Python | 3.12.13 |
 | uv | 0.11.28 |
 
-Open PowerShell at the repository root. For a first-time setup, run:
+On **Windows x64**, open PowerShell at the repository root. For a first-time setup, run:
 
 ```powershell
 npm ci
@@ -169,6 +169,24 @@ npm run dev:check
 npm run dev
 ```
 
+On **macOS 15+ with Apple Silicon**, open Terminal at the repository root and use native arm64 Node.js and Python:
+
+```bash
+npm ci
+npm --prefix client ci
+uv sync --directory backend --locked
+
+# Copy the key-free defaults before the first launch.
+# If config.yaml already exists, keep it and skip this line.
+cp -n desktop/packaging/defaults/config.yaml config.yaml
+
+npm run runtime:prepare
+npm run dev:check
+npm run dev
+```
+
+The Mac setup prepares bundled Node.js, Git and PowerShell. Employee terminal commands use PowerShell 7 on both platforms. When macOS asks for access to a project in Desktop, Documents, Downloads or an external drive, allow access to the selected folder.
+
 Configure your own model in the setup screen. Installing dependencies and preparing runtimes requires an internet connection.
 
 Useful development commands:
@@ -179,13 +197,15 @@ Useful development commands:
 | Check translation resources | `npm --prefix client run check:i18n` |
 | Verify bilingual desktop flows | `npm run test:i18n` |
 | Verify desktop boundaries and rendering | `npm run test:minimum` |
+| Build a local macOS DMG on Apple Silicon | `npm run package:mac` |
 
-The [Windows CI workflow](.github/workflows/ci.yml) runs the existing checks with local model fixtures. See [Contributing](CONTRIBUTING.md) for the validation commands and [Development and maintenance (Chinese)](docs/development.zh-CN.md) for detailed startup, packaging, and troubleshooting instructions.
+The [Windows CI workflow](.github/workflows/ci.yml) runs the existing checks with local model fixtures. macOS checks run locally on an Apple Silicon Mac. See [Contributing](CONTRIBUTING.md) for the validation commands and [Development and maintenance (Chinese)](docs/development.zh-CN.md) for detailed startup, packaging, and troubleshooting instructions.
 
 ## Known limitations
 
-- **Windows x64 only.**
+- **Supported platforms.** Windows x64 and macOS 15+ on Apple Silicon (arm64). Intel Macs and Linux are currently unsupported.
 - **Windows installer.** This release is source-only. The existing installer is about 463 MB, is unsigned, and uses the default Electron icon. SmartScreen may block it.
+- **macOS packages.** `npm run package:mac` creates an ad-hoc signed local DMG without notarization. Distribution builds use `npm run package:mac:release` on a Mac with Developer ID signing and Apple notarization credentials. Gatekeeper may block a local test build.
 - **Local, single-user Gateway.** The desktop app disables Gateway authentication by default (`DEER_FLOW_AUTH_DISABLED=1`). Keep the Gateway on localhost and never expose it to the public internet.
 - **Model costs.** The default configuration sets `subagents.token_budget.enabled=false`. Long tasks with expensive models have no built-in spending cutoff.
 - **No OS-level sandbox.** Git worktrees separate parallel changes and approvals gate certain actions. Commands still run with the local user's OS permissions.
@@ -247,4 +267,6 @@ I maintain this project as an **individual contributor** and will continue updat
 
 Small Office's own code and character artwork use the [MIT License](LICENSE). Third-party licenses and existing attribution are retained.
 
-The office map and Phaser visualization are adapted from [SkyOffice](https://github.com/kevinshen56714/SkyOffice). Small Office is developed as a derivative of [DeerFlow](https://github.com/bytedance/deer-flow), whose [MIT license](backend/DEERFLOW_LICENSE) is included. Thank you to both projects.
+The office map and Phaser visualization are adapted from [SkyOffice](https://github.com/kevinshen56714/SkyOffice).
+
+Small Office uses [DeerFlow](https://github.com/bytedance/deer-flow) as its agent runtime foundation and builds on it with extensive secondary development. This work includes the local desktop application and pixel office, employee management and capability-based delegation, Git worktree collaboration and writeback, execution approvals, the office knowledge library, bilingual interfaces, and Windows/macOS integration. DeerFlow's [MIT license](backend/DEERFLOW_LICENSE) and upstream attribution are retained. Thank you to both projects.

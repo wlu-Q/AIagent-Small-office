@@ -237,7 +237,7 @@ function loadDesktopMainForTest(overrides = {}) {
       throw new Error('offline')
     }),
     process: { env: overrides.env || {}, platform: 'win32' },
-    setTimeout,
+    setTimeout: overrides.setTimeout || setTimeout,
     __dirname,
     require(specifier) {
       if (specifier === 'electron') return electron
@@ -349,6 +349,27 @@ test('a request timeout or HTTP error does not restart or replay the Gateway', a
   assert.equal(requests, 2)
 })
 
+
+test('bootstrap uses model timeout and reports an unconfirmed outcome without replay', async () => {
+  const deadlines = []
+  const requests = []
+  const harness = loadDesktopMainForTest({
+    setTimeout: (callback, delay) => {
+      deadlines.push(delay)
+      return setTimeout(callback, delay === 180000 ? 10 : delay)
+    },
+    fetch: async (url, options) => {
+      if (url.endsWith('/health')) return { ok: true, json: async () => ({ status: 'healthy', service: 'deer-flow-gateway' }) }
+      requests.push(url)
+      return new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(Object.assign(new Error('timeout'), { name: 'AbortError' }))))
+    },
+  })
+  harness.registerIpcHandlers()
+  await assert.rejects(harness.ipcHandlers.get('office-desktop:testOfficeBootstrapModel')({}, {}), /请求超时/)
+  await assert.rejects(harness.ipcHandlers.get('office-desktop:initializeOfficeBootstrap')({}, {}), /结果尚未确认/)
+  assert.equal(deadlines.filter(delay => delay === 180000).length, 2)
+  assert.equal(requests.length, 2)
+})
 
 test('desktop entry files are valid JavaScript', () => {
   assert.doesNotThrow(() => new vm.Script(read(mainPath), { filename: mainPath }))

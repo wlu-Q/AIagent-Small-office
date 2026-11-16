@@ -1,0 +1,17 @@
+{
+  "node": {
+    "version": "24.22.2",
+    "url": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-darwin-arm64.tar.gz",
+    "sha256": "aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a"
+  },
+  "git": {
+    "version": "2.56.1",
+    "url": "https://github.com/desktop/dugite-native/releases/download/v2.56.1/dugite-native-v2.56.1-238326e-macOS-arm64.tar.gz",
+    "sha256": "a882ec6882416b57d212a22bac845ae27944f96cf73453a864f6a12c17863a79"
+  },
+  "powershell": {
+    "version": "7.6.9",
+    "url": "https://github.com/PowerShell/PowerShell/releases/download/v7.6.9/powershell-7.6.9-osx-arm64.tar.gz",
+    "sha256": "a1c7e98ac403da4be5ba75c1c5855af272de7787a91d478c4267466fe58fc1af"
+  }
+}

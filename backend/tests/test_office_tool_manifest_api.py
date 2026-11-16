@@ -26,7 +26,7 @@ async def test_tool_choices_are_named_and_delivery_is_derived(tmp_path):
     assert set(choices['read_file']['members']) == {'read_file', 'ls', 'glob', 'grep'}
     assert set(choices['web_search']['members']) == {'web_search', 'web_fetch', 'image_search'}
     assert 'publish_task_result' in state['availableTools']
-    state = await service.save_employee_tools('frontend-a', {'tools': [t for t in state['tools'] if t != 'apply_patch'] + ['powershell_terminal'], 'expectedRevision': state['revision']})
+    state = await service.save_employee_tools('frontend-a', {'tools': sorted((set(state['tools']) - {'apply_patch'}) | {'powershell_terminal'}), 'expectedRevision': state['revision']})
     assert 'publish_task_result' in state['availableTools']
     state = await service.save_employee_tools('frontend-a', {'tools': [t for t in state['tools'] if t != 'powershell_terminal'], 'expectedRevision': state['revision']})
     assert 'publish_task_result' not in state['availableTools']
@@ -37,13 +37,13 @@ async def test_tool_choices_are_named_and_delivery_is_derived(tmp_path):
     pm_state = service.get_employee_tools('pm')
     todo = next(choice for choice in pm_state['choices'] if choice['id'] == 'write_todos')
     assert not todo.get('disabled') and not todo['required']
-    assert 'write_todos' not in pm_state['tools']
-    assert 'write_todos' not in pm_state['availableTools']
+    assert 'write_todos' in pm_state['tools']
+    assert 'write_todos' in pm_state['availableTools']
     assert 'capture_user_message' in pm_state['availableTools']
-    enabled = await service.save_employee_tools('pm', {'tools': [*pm_state['tools'], 'write_todos', 'apply_patch'], 'expectedRevision': pm_state['revision']})
+    enabled = await service.save_employee_tools('pm', {'tools': sorted(set(pm_state['tools']) | {'write_todos', 'apply_patch'}), 'expectedRevision': pm_state['revision']})
     assert {'write_todos', 'apply_patch', 'publish_task_result'} <= set(enabled['availableTools'])
     assert 'powershell_run' not in enabled['availableTools']
-    disabled = await service.save_employee_tools('pm', {'tools': pm_state['tools'], 'expectedRevision': enabled['revision']})
+    disabled = await service.save_employee_tools('pm', {'tools': [name for name in pm_state['tools'] if name not in {'write_todos', 'apply_patch'}], 'expectedRevision': enabled['revision']})
     assert not {'write_todos', 'apply_patch', 'publish_task_result'} & set(disabled['availableTools'])
 
 
@@ -94,7 +94,7 @@ async def test_tools_save_persists_and_changes_routing_and_delegation(tmp_path, 
     before = service.get_employee_tools('frontend-a')
     assert 'apply_patch' in before['tools']
     after = await service.save_employee_tools('frontend-a', {
-        'tools': [t for t in before['tools'] if t != 'apply_patch'], 'expectedRevision': before['revision']})
+        'tools': [t for t in before['tools'] if t not in {'apply_patch', 'powershell_terminal'}], 'expectedRevision': before['revision']})
     assert 'apply_patch' not in after['availableTools']
     assert 'publish_task_result' not in after['availableTools']
     assert 'apply_patch' not in (await EmployeeCapabilityRegistry(service).get('frontend-a'))['tools']

@@ -75,6 +75,8 @@ Skill 目录由 `skills/prompt.py` 渲染获准名称、描述和路径，主 Ag
 
 ## 同步规则
 
+Office 文件检索沿原权限、路径解析和结果过滤执行。`RetrievalEvidenceMiddleware` 仅记录任务内观察索引，并在输出预算处理后的模型输入中合并同请求、同结果的重复正文；原 ToolMessage、RunJournal 和调用 ID 不被删除。索引不自动进入 Prompt，不是项目知识或员工记忆。LocalSandbox 的只读 primitive 在路径与 Skill 权限检查之后，只合并同任务、同授权的相同在途请求，不保存跨轮执行缓存；分页、工作区和参数变化分别执行，失败不复用。正文被压缩或外置后无法确认原文仍可见时，不生成悬空引用。同步不得恢复检索次数门禁或用历史观察跳过当前搜索。
+
 当前 Windows 构建使用 Python 3.12.13 / uv 0.11.28 和 `uv.lock` 中的依赖；依赖更新保留 `greenlet==3.3.0` 的 Windows 约束。LangChain、LangGraph、MCP 与模型 SDK 同步时，需要验证现有 Middleware、Run/Checkpoint 恢复和工具调用协议，不恢复已删除的 Office 执行层。
 
 `review_skill_package` 的 Skill URI、虚拟路径与本地路径使用当前用户的 Skill 存储，并支持系统临时目录中的下载包；其他用户目录、路径穿越和 Skill 链接越界仍拒绝。Python 静态检查不把 URL 字符串当作网络调用，也不把单项环境配置读取当作批量导出；环境访问与网络调用仅在同文件共现时提示待核实，直接向网络调用传递环境内容仍保留高危判定。不执行被检查的脚本，不增加安装门禁。

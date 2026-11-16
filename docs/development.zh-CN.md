@@ -62,7 +62,7 @@ PDF 复用本地 PDF.js，DOCX 复用隔离的 docx-preview，复杂 Word 排版
 
 员工通过 `search_office_library(query)` 自主检索。新员工默认配置；已有员工升级前停机执行 `backend/.venv/Scripts/python.exe backend/scripts/enable_office_library.py --data-dir backend/.deer-flow --maintenance` 后重启。工具仍受 tools.yaml 控制，用户之后移除不会重新授予。资料不自动写进员工记忆或项目知识，不改变 FIFO、ask 或委派方式。
 
-资料库向量与精排分别配置模型、接口地址和 API 密钥；密钥留空只保留对应模型的原密钥，不互相借用。Windows 使用本机加密保存，接口只返回两项已配置状态。仅更换密钥或精排配置不重建向量索引。旧共享密钥升级时先停止 Gateway，运行 `backend/.venv/Scripts/python.exe backend/scripts/split_library_api_keys.py --database <资料库目录>/library.sqlite --apply --maintenance`；脚本备份数据库，将原加密密钥复制到两个独立字段，并保留待重建配置、文档与索引。非 Windows 分别使用 `OFFICE_LIBRARY_EMBEDDING_API_KEY` 和 `OFFICE_LIBRARY_RERANK_API_KEY` 环境变量。
+资料库向量与精排分别配置模型、接口地址和 API 密钥；密钥留空只保留对应模型的原密钥，不互相借用。Windows 使用本机 DPAPI 加密，macOS 使用 Keychain 保存资料库加密密钥；接口只返回两项已配置状态。仅更换密钥或精排配置不重建向量索引。旧共享密钥升级时先停止 Gateway，运行 `backend/.venv/Scripts/python.exe backend/scripts/split_library_api_keys.py --database <资料库目录>/library.sqlite --apply --maintenance`；脚本备份数据库，将原加密密钥复制到两个独立字段，并保留待重建配置、文档与索引。两种平台也可分别使用 `OFFICE_LIBRARY_EMBEDDING_API_KEY` 和 `OFFICE_LIBRARY_RERANK_API_KEY` 环境变量提供尚未保存的密钥。
 
 用 `npm run test:library` 验证隔离 IPC 下的 Electron 界面，用 `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_office_library.py` 验证资料库后端。
 
@@ -135,13 +135,17 @@ React + Phaser
 
 ## 本地运行
 
-当前开发与构建环境：Windows x64、Node.js 24.22.2、npm 11.19.1、Python 3.12.13、uv 0.11.28。版本分别记录在 `.node-version`、`package.json` 和 `backend/.python-version` / `backend/pyproject.toml`；依赖由两份 `package-lock.json` 和 `backend/uv.lock` 锁定。
+支持 Windows x64 和 macOS 15+ 的 Apple Silicon（arm64）设备。两种平台使用 Node.js 24.22.2、npm 11.19.1、Python 3.12.13、uv 0.11.28；Mac 使用原生 arm64 工具链。版本分别记录在 `.node-version`、`package.json` 和 `backend/.python-version` / `backend/pyproject.toml`；依赖由两份 `package-lock.json` 和 `backend/uv.lock` 锁定。
 
 ```powershell
 npm ci
 npm --prefix client ci
 uv sync --directory backend --locked
 ```
+
+首次启动前，按 [README 的平台步骤](../README.zh-CN.md#development)复制无密钥配置并准备运行时。Windows 运行 `npm run runtime:powershell`；macOS 运行 `npm run runtime:prepare`，准备 Node、Git 和 PowerShell。之后执行 `npm run dev:check`。
+
+下文的 npm 和 uv 命令可在 PowerShell 或 macOS 终端执行。示例中的 `backend/.venv/Scripts/python.exe` 是 Windows 虚拟环境入口；macOS 对应 `backend/.venv/bin/python`。
 
 单独启动 Gateway：
 
@@ -153,19 +157,19 @@ npm run deerflow:gateway
 
 搜索服务由 `config.yaml` 的 `web_search.use` 选择。Firecrawl 适配支持配置 `fallback: ddgs`：额度不足时冷却 1 小时，认证或访问失败时冷却 5 分钟，限流、网络及服务异常时冷却 1 分钟；期间使用 DDGS，冷却后重新尝试 Firecrawl。结果包含实际 `provider`，两家都失败时返回明确错误。API Key 只保存在被 Git 忽略的本机配置或环境变量中，配置修改后重启 Gateway。
 
-开发模式一键启动：双击根目录 `start-dev.cmd`，或运行：
+开发模式在两种平台均可通过以下命令启动；Windows 也可双击根目录 `start-dev.cmd`：
 
 ```powershell
 npm run dev
 ```
 
-`npm run dev:check` 只检查环境，不下载或安装运行时。开发入口不执行生产构建；它校验 Electron、Vite、后端虚拟环境、配置和自带 PowerShell，然后启动 Electron。根目录 `npm ci` 的 postinstall 使用 Electron 自带安装器下载并校验固定版本的桌面运行时。首次准备终端运行时执行 `npm run runtime:powershell`：按 `desktop/packaging/runtimes.json` 中的版本、官方地址和 SHA256 准备运行时，保存至忽略的 `output/packaging/resources/powershell/`，不修改系统 PowerShell 或系统 PATH。正确的归档缓存直接复用，固定版本变化时替换对应构建目录。Electron 在本进程中通过 Vite 的 ESM API 启动开发服务，使用仅监听 `127.0.0.1` 的系统分配端口，等待监听成功后加载当前仓库页面，再沿用既有 Gateway 生命周期。启动地址打印在日志中，不会连接其他项目占用的 5173 页面。`npm run desktop:start:dev` 使用同一入口。
+`npm run dev:check` 只检查环境，不下载或安装运行时。开发入口不执行生产构建；它校验 Electron、Vite、后端虚拟环境、配置和自带 PowerShell，macOS 还校验原生 arm64 架构及自带 Node、Git，然后启动 Electron。根目录 `npm ci` 的 postinstall 使用 Electron 自带安装器下载并校验固定版本的桌面运行时。运行时版本、官方地址和 SHA256 分别固定在 Windows 的 `desktop/packaging/runtimes.json` 与 macOS 的 `desktop/packaging/runtimes.macos.json`；归档与解包目录位于忽略的 `output/packaging/`。正确的归档缓存直接复用，固定版本变化时替换对应构建目录。Electron 在本进程中通过 Vite 的 ESM API 启动开发服务，使用仅监听 `127.0.0.1` 的系统分配端口，等待监听成功后加载当前仓库页面，再沿用既有 Gateway 生命周期。启动地址打印在日志中，不会连接其他项目占用的 5173 页面。`npm run desktop:start:dev` 使用同一入口。
 
 首次初始化必须选择工作区目录并测试模型连接后才能进入。目录选择复用现有项目绑定接口，取消选择不改变已有绑定，重新打开引导页会显示已选目录；模型连接失败不清除目录。现有已初始化办公室不重新走引导，也不改动原工作区、员工或聊天数据。
 
 同一 Electron 应用只允许一个实例，重复启动会聚焦已有窗口。开发模式下，8001 被占用时会明确报错；确需使用已有 Gateway 时，启动前设置 `DEER_FLOW_GATEWAY_URL`，由用户明确选择目标服务，应用退出时不关闭该外部服务。
 
-正常关闭窗口会停止自身启动的 Gateway 进程树并关闭 Vite。启动终端收到 Ctrl+C/终止信号时清理本次 Electron 进程树，不按端口或进程名称结束其他服务。操作系统强制结束进程或断电不提供正常退出保证。
+Windows 关闭最后一个窗口会退出应用，macOS 关闭窗口后应用继续运行，可从 Dock 重新打开；在 Mac 上使用应用菜单退出或 Command+Q 结束应用。应用正常退出时停止自身启动的 Gateway 进程树并关闭 Vite。启动终端收到 Ctrl+C/终止信号时清理本次 Electron 进程树，不按端口或进程名称结束其他服务。操作系统强制结束进程或断电不提供正常退出保证。
 
 启动日志位于 `output/logs/development.log`；Gateway 日志位于 `backend/.deer-flow/logs/gateway.log`。缺环境/配置时会显示处理提示；双击脚本失败会保留终端，便于查看错误。
 
@@ -176,7 +180,7 @@ npm run build
 npm run desktop:start
 ```
 
-开发 Vite 只在未打包且带 `--office-dev` 参数时加载，普通启动使用 `client/dist`。Windows 安装包沿用同一 Client、Desktop 和 Gateway 代码，运行时与用户数据位置见下方打包说明。
+开发 Vite 只在未打包且带 `--office-dev` 参数时加载，普通启动使用 `client/dist`。Windows 与 macOS 安装包沿用同一 Client、Desktop 和 Gateway 代码，运行时与用户数据位置见下方打包说明。
 
 ## 验证入口
 
@@ -189,7 +193,9 @@ npm run test:minimum
 npm run test:task-workspaces
 ```
 
-后端测试在仓库根目录使用 `backend/.venv/Scripts/python.exe -m pytest ...`，或在 `backend/` 中使用 `uv run pytest ...`。
+后端测试在仓库根目录使用 Windows 的 `backend/.venv/Scripts/python.exe -m pytest ...` 或 macOS 的 `backend/.venv/bin/python -m pytest ...`，也可在 `backend/` 中使用 `uv run pytest ...`。
+
+跨平台运行时与打包逻辑检查为 `npm run test:runtimes` 和 `npm run test:packaging`。当前 GitHub Actions 仅配置 Windows CI；Mac 需要在 Apple Silicon 设备上执行启动、桌面交互与打包验证。
 
 PM 目标执行与历史读取验证（受控模型，不调用远程服务）：
 
@@ -219,9 +225,9 @@ Run 查询中的调用数、消息数、Token 和 `lastEventSeq` 是原生 Worke
 
 验收入口 `npm run test:terminal` 和 `npm run test:delivery` 构建 Client 并启动真实 Desktop/Gateway，分别验证会话管理和批准/冲突集成/交付。使用隔离目录和受控模型，不使用生产密钥或项目；真实绑定模型的整项目验收另行执行。
 
-终端执行要求 Windows 与 PowerShell 7.4+；桌面开发版和安装版都向 Gateway 传入自带 `pwsh.exe` 的绝对路径，开发者可用 `OFFICE_POWERSHELL_EXECUTABLE` 显式覆盖。独立启动后端时仍支持该变量或系统 PATH 中的 `pwsh`。会话记录复用 `command_executions`；普通命令及 `powershell_read` 默认等待完成或 30 秒，预览服务默认等待 1 秒，可显式设置 0–120 秒，不因每行日志提前返回。stdout/stderr 分开、有界留存脱敏后的开头和尾部；增量游标只对应固定开头，终态单独返回错误尾部与省略数量，退出码不从文本猜测。同一失败链最多重试五次，重启留下的在途状态记为 unknown，不重放、不按旧 PID 杀进程。
+Windows 与 macOS 的员工终端均使用 PowerShell 7.4+；桌面开发版和安装版向 Gateway 传入自带 `pwsh.exe`（Windows）或 `pwsh`（macOS）的绝对路径，开发者可用 `OFFICE_POWERSHELL_EXECUTABLE` 显式覆盖。独立启动后端时仍支持该变量或系统 PATH 中的 `pwsh`。会话记录复用 `command_executions`；普通命令及 `powershell_read` 默认等待完成或 30 秒，预览服务默认等待 1 秒，可显式设置 0–120 秒，不因每行日志提前返回。stdout/stderr 分开、有界留存脱敏后的开头和尾部；增量游标只对应固定开头，终态单独返回错误尾部与省略数量，退出码不从文本猜测。同一失败链最多重试五次，重启留下的在途状态记为 unknown，不重放、不按旧 PID 杀进程。
 
-终端使用原生 Windows 路径，文件工具的 `/mnt/...` 引用不能直接用于 PowerShell；普通命令默认沿任务目录，`preview_service` 省略 target 时默认在用户绑定项目启动，显式 `target="project"` 或工作区 ID 仅改变本次执行目录。list 返回所查询的目录，不跨工作区汇总。原生命令保留输出与最后原生退出码，不因非零退出自动停止后续语句；依赖前步成功使用 `&&` 或显式判断 `$LASTEXITCODE`，PowerShell 自身未处理错误仍中止。仅 `purpose=preview_service` 注入 `OFFICE_PREVIEW_PORT` 候选端口，真实可访问地址为准，不为匹配候选重启可用服务。终端通过 `ToolMessage.artifact` 传递真实执行状态。Office 主/子 Agent 不装配 LoopDetection；保留原模型调用/Token 预算、单轮计时、取消和终端重试限制。相关验证见 `backend/tests/test_office_terminal.py` 和 `backend/tests/test_office_preview_recovery.py`。
+终端使用当前主机的原生路径，文件工具的 `/mnt/...` 引用不能直接用于 PowerShell；普通命令默认沿任务目录，`preview_service` 省略 target 时默认在用户绑定项目启动，显式 `target="project"` 或工作区 ID 仅改变本次执行目录。list 返回所查询的目录，不跨工作区汇总。原生命令保留输出与最后原生退出码，不因非零退出自动停止后续语句；依赖前步成功使用 `&&` 或显式判断 `$LASTEXITCODE`，PowerShell 自身未处理错误仍中止。`purpose=preview_service` 不向模型分配端口，实际监听地址以命令输出为准，不因端口差异重启可用服务。终端通过 `ToolMessage.artifact` 传递真实执行状态。Office 主/子 Agent 不装配 LoopDetection；保留原模型调用/Token 预算、单轮计时、取消和终端重试限制。相关验证见 `backend/tests/test_office_terminal.py` 和 `backend/tests/test_office_preview_recovery.py`。
 
 临时命令在工作收尾前停止；预览服务可保留到显式停止、取消、超时或 Gateway 退出。发布不要求停止服务，不认证测试结果。PM 工具清单默认提供 `powershell_list/read`，员工管理显示“终端查询（只读）”；“终端控制”仍禁用。查询不要求执行权限，也不派生发布能力。重新提供历史地址时查询当前记录；running 不是 HTTP 就绪证明，刚取得的有效执行结果不重复检查。现有安装停服运行 `backend/scripts/grant_pm_terminal_queries.py --data-dir backend/.deer-flow --apply --maintenance` 并开始新 Run，脚本备份原清单；默认仅 dry-run。当前不支持交互式 stdin、密码提示和 TUI，Worktree 不提供 OS 权限沙箱。
 
@@ -240,6 +246,30 @@ npm run test:task-workspaces
 上述 Worker 集成使用真实 PM 执行链与受控模型/员工 Executor，不把它当作真实模型项目交付。重启只按原生持久化 Run 恢复在途执行、从 Checkpoint 重建待答占用，不根据旧 Workflow 自动续跑；因此启动仍可能恢复原生在途工作。
 
 桌面与真实 Gateway 联调：`npm run test:gateway-integration`。需要已安装后端 `.venv` 与桌面依赖；命令构建客户端，在临时目录启动独立 Gateway、SQLite 与受控模型，再启动实际 Electron 主进程及 preload，验证普通回答、ask/排队/刷新恢复、真实原生员工委派、暂停继续、取消及私聊。退出时停止测试进程，临时目录路径输出在日志中。生产模型、用户项目和生产数据不作为测试输入。
+
+## macOS 桌面安装包
+
+在 macOS 15+ 的 Apple Silicon 设备上完成源码环境准备后构建；构建入口要求原生 arm64 的 Node、Python 和 Electron。
+
+```bash
+npm run package:mac
+```
+
+本地测试包输出为 `dist/SmallOffice-<package.json版本>-mac-arm64-local.dmg`，采用 ad-hoc 签名，未经 Apple 公证。解包应用位于 `dist/mac-arm64/SmallOffice.app`；DMG 提供拖入 Applications 的安装入口。本地包可能被 Gatekeeper 拦截。
+
+正式分发使用 `npm run package:mac:release`。构建环境需要可用的 Developer ID 签名身份和 Apple 公证凭据，可使用 `APPLE_KEYCHAIN_PROFILE`，或构建脚本支持的 Apple ID / App Store Connect API 凭据。成功时输出 `dist/SmallOffice-<package.json版本>-mac-arm64.dmg`。凭据只保存在本机或受保护的构建环境中。
+
+Mac 包自带 Python 3.12、后端依赖、Node、Git 和 PowerShell。固定运行时及 SHA256 位于 `desktop/packaging/runtimes.macos.json`。构建后校验包内代码与资源、运行时可执行权限、arm64 架构和代码签名；正式分发模式还检查 Gatekeeper 评估及公证票据。
+
+安装版配置、数据库和日志位于 `~/Library/Application Support/SmallOffice/office/`。资料库通过 Keychain 保护密钥。项目位于桌面、文稿、下载或外接磁盘时，应用会请求访问权限；访问被拒绝后，可在系统设置的“隐私与安全性 → 文件与文件夹”中检查应用授权。删除应用本体后，用户数据目录仍保留。
+
+在 Mac 上用新建隔离用户目录运行实际应用检查首次配置：
+
+```bash
+node desktop/packaging/launch-smoke.cjs dist/mac-arm64/SmallOffice.app/Contents/MacOS/SmallOffice --fresh-profile
+```
+
+此检查使用本地受控模型。真实模型任务与受保护目录访问仍需在目标 Mac 上验证。
 
 ## Windows 桌面安装包
 

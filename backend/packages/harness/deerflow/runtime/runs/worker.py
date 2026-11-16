@@ -491,6 +491,12 @@ def _event_completion_seed(events: list[dict[str, Any]]) -> dict[str, Any]:
     for call_key, event in [*ai_events_by_call.items(), *[(('external', source), event) for source, event in external_events.items()]]:
         if call_key[0] == 'call':
             highest_call_index = max(highest_call_index, call_key[1])
+        caller = _event_caller(event)
+        # Delegated usage is restored only from llm.external.usage. Its sibling
+        # llm.ai.response carries a global call index instead of source_run_id, so
+        # counting both would double every subagent call.
+        if call_key[0] == 'call' and caller.startswith('subagent:'):
+            continue
         usage = _event_usage(event)
         total_tokens = usage['total_tokens']
         seed['total_input_tokens'] += usage['input_tokens']
@@ -501,7 +507,6 @@ def _event_completion_seed(events: list[dict[str, Any]]) -> dict[str, Any]:
 
         seed['has_usage_events'] = True
 
-        caller = _event_caller(event)
         if caller.startswith('subagent:'):
             seed['subagent_tokens'] += total_tokens
         elif caller.startswith('middleware:'):

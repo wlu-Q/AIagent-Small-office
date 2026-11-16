@@ -56,9 +56,8 @@ def _status_guidance(status: str, stop_reason: str | None = None) -> str:
     if stop_reason:
         # A guardrail cap ended this run early: the status remains terminal,
         # while ``stop_reason`` records token, turn, or loop exhaustion.
-        if status == "completed":
-            return "hit a guardrail cap with a partial result; reuse the partial result, retry with a tighter scope, or raise the per-agent budget (max_turns / token_budget)"
-        return "hit a guardrail cap with no usable result; retry with a tighter scope or raise the per-agent budget (max_turns / token_budget)"
+        return ("execution stopped early; preserve existing work and use execution records to determine remaining work; "
+                "continue in the existing workspace when needed, without repeating successful operations")
     if status == "in_progress":
         return "already delegated; do NOT delegate again; wait for or build on the result"
     if status == "completed":

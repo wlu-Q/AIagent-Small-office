@@ -878,6 +878,21 @@ class TestAgentConstruction:
 class TestAsyncExecutionPath:
     """Test _aexecute() async execution path."""
 
+    @pytest.mark.parametrize('pending_call', [False, True])
+    def test_interruption_does_not_promote_opening_text_to_final_report(self, classes, msg, pending_call):
+        module = sys.modules[classes['SubagentExecutor'].__module__]
+        from langchain_core.messages import AIMessage, ToolMessage
+        messages = [AIMessage(content='I will inspect then merge.'),
+                    AIMessage(content='', tool_calls=[dict(name='publish_task_result', args={}, id='publish')]),
+                    ToolMessage(content='{"status":"written"}', tool_call_id='publish')]
+        if pending_call:
+            messages.append(AIMessage(content='Now checking', tool_calls=[dict(name='powershell_run', args={}, id='test')]))
+        assert module._partial_result({'messages': messages}) is None
+        assert module._latest_captured_ai_text([message.model_dump() for message in messages]) is None
+        messages.append(AIMessage(content='Writeback completed; build still untested.'))
+        assert module._partial_result({'messages': messages}) == messages[-1].content
+        assert module._latest_captured_ai_text([message.model_dump() for message in messages]) == messages[-1].content
+
     @pytest.mark.anyio
     async def test_aexecute_success(self, classes, base_config, mock_agent, msg):
         """Test successful async execution returns completed result."""

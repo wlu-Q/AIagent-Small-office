@@ -6,7 +6,7 @@
 
 Thanks for helping improve Small Office.
 
-1. Read [AGENTS.md](AGENTS.md) and the [domain glossary](CONTEXT.md). Use the pinned Windows x64 toolchain and setup commands in [README.md](README.md).
+1. Read [AGENTS.md](AGENTS.md) and the [domain glossary](CONTEXT.md). Use the pinned toolchain and the Windows x64 or macOS 15+ Apple Silicon setup commands in [README.md](README.md).
 2. Keep changes focused on the problem. Prefer existing Git and platform capabilities, and avoid speculative compatibility layers or fallback paths.
 3. Keep API keys, personal configuration, conversations, runtime data, and generated installers out of changes. Tests should use isolated data and local model fixtures.
 4. Describe the problem, the resulting behavior, and how you verified it. For interface changes, include a screenshot and check both English and Simplified Chinese.
@@ -21,9 +21,13 @@ npm run test:gateway-integration
 npm run test:task-workspaces
 npm run test:terminal
 npm run test:delivery
+npm run test:runtimes
+npm run test:packaging
 ```
 
 The Windows CI workflow checks startup from a fresh checkout, bilingual desktop rendering, first-time setup, and the Office backend suite. Run the full Electron and Gateway checks above locally when changing employee collaboration, Git workspaces, terminal approvals, or file delivery. Both use controlled local models. [Windows CI workflow](.github/workflows/ci.yml)
+
+The commands above also run in macOS Terminal. For Mac changes, verify on native Apple Silicon with `npm run dev:check` and the relevant checks above. Build a local DMG with `npm run package:mac` when changing packaging. CI currently runs on Windows, so include your macOS version and local results in the contribution.
 
 Detailed packaging and maintenance instructions are available in [the Chinese development guide](docs/development.zh-CN.md). Contributions use the project's [MIT License](LICENSE).
 
@@ -31,7 +35,7 @@ Detailed packaging and maintenance instructions are available in [the Chinese de
 
 欢迎一起改进小小办公室。
 
-1. 先阅读 [AGENTS.md](AGENTS.md) 和 [领域词汇](CONTEXT.md)，按照 [中文介绍](README.zh-CN.md) 使用固定的 Windows x64 工具链完成环境准备。
+1. 先阅读 [AGENTS.md](AGENTS.md) 和 [领域词汇](CONTEXT.md)，按照 [中文介绍](README.zh-CN.md) 使用固定工具链完成 Windows x64 或 macOS 15+ Apple Silicon 环境准备。
 2. 围绕具体问题提交改动。优先复用已有 Git 和平台能力，避免为尚未发生的问题增加兼容层或降级分支。
 3. 密钥、个人配置、对话、运行数据和生成的安装包不进入变更。测试使用隔离数据与本地受控模型。
 4. 说明解决的问题、修改后的行为和验证方式。界面改动附截图，并检查英文和简体中文。
@@ -46,8 +50,12 @@ npm run test:gateway-integration
 npm run test:task-workspaces
 npm run test:terminal
 npm run test:delivery
+npm run test:runtimes
+npm run test:packaging
 ```
 
 Windows CI 检查干净检出后的启动环境、双语桌面、首次配置和 Office 后端。修改员工协作、Git 工作区、终端审批或文件交付时，在本机运行上面的完整 Electron 与 Gateway 联调。两处验证均使用本地受控模型。[Windows CI](.github/workflows/ci.yml)
+
+上述命令也可在 macOS 终端执行。涉及 Mac 的改动，请在原生 Apple Silicon 环境运行 `npm run dev:check` 和相关检查；打包改动使用 `npm run package:mac` 构建本地 DMG。当前 CI 运行在 Windows，贡献说明中请写明 macOS 版本及本机验证结果。
 
 打包和维护操作见 [运行与维护说明](docs/development.zh-CN.md)。贡献内容遵循项目的 [MIT 许可](LICENSE)。

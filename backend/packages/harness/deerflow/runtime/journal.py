@@ -519,24 +519,27 @@ class RunJournal(BaseCallbackHandler):
                     total_tk = input_tk + output_tk
                 if total_tk > 0 and rid not in self._counted_llm_run_ids:
                     self._counted_llm_run_ids.add(rid)
-                    self._total_input_tokens += input_tk
-                    self._total_output_tokens += output_tk
-                    self._total_tokens += total_tk
                     self._llm_call_count += 1
+                    # Delegated usage is booked once by record_external_usage, which
+                    # dedups on source_run_id. The same subagent response also arrives
+                    # here carrying a global llm_call_index, so counting it in both
+                    # places doubles every delegated call.
+                    if not caller.startswith("subagent:"):
+                        self._total_input_tokens += input_tk
+                        self._total_output_tokens += output_tk
+                        self._total_tokens += total_tk
 
-                    if caller.startswith("subagent:"):
-                        self._subagent_tokens += total_tk
-                    elif caller.startswith("middleware:"):
-                        self._middleware_tokens += total_tk
-                    else:
-                        self._lead_agent_tokens += total_tk
+                        if caller.startswith("middleware:"):
+                            self._middleware_tokens += total_tk
+                        else:
+                            self._lead_agent_tokens += total_tk
 
-                    # Per-model bucket
-                    response_metadata = getattr(message, "response_metadata", None) or {}
-                    per_call_model: str | None = None
-                    if isinstance(response_metadata, Mapping):
-                        per_call_model = response_metadata.get("model_name") or response_metadata.get("model")
-                    self._record_model_usage(per_call_model, input_tk, output_tk, total_tk, self._extract_cache_read(usage_dict))
+                        # Per-model bucket
+                        response_metadata = getattr(message, "response_metadata", None) or {}
+                        per_call_model: str | None = None
+                        if isinstance(response_metadata, Mapping):
+                            per_call_model = response_metadata.get("model_name") or response_metadata.get("model")
+                        self._record_model_usage(per_call_model, input_tk, output_tk, total_tk, self._extract_cache_read(usage_dict))
 
                     self._schedule_progress_flush()
 
@@ -556,18 +559,18 @@ class RunJournal(BaseCallbackHandler):
         tool_call_id = str(run_id)
         logger.debug("Tool start for node %s, tool_call_id=%s, tags=%s", run_id, tool_call_id, tags)
 
-    def on_tool_end(self, output, *, run_id, parent_run_id=None, **kwargs):
+    def on_tool_end(self, output, *, run_id, parent_run_id=None, tags=None, **kwargs):
         """Handle tool end event, append message and clear node data"""
         try:
             if isinstance(output, ToolMessage):
                 msg = cast(ToolMessage, output)
-                self._persist_tool_result_message(msg)
+                self._persist_tool_result_message(msg, tags=tags)
             elif isinstance(output, Command):
                 cmd = cast(Command, output)
                 messages = cmd.update.get("messages", [])
                 for message in messages:
                     if isinstance(message, BaseMessage):
-                        self._persist_tool_result_message(message)
+                        self._persist_tool_result_message(message, tags=tags)
                     else:
                         logger.warning(f"on_tool_end {run_id}: command update message is not BaseMessage: {type(message)}")
             else:
@@ -618,11 +621,15 @@ class RunJournal(BaseCallbackHandler):
             name = self._tool_call_value(tool_call, "name")
             self._current_run_tool_call_names[tool_call_id] = str(name or "")
 
-    def _persist_tool_result_message(self, message: BaseMessage) -> None:
+    def _persist_tool_result_message(self, message: BaseMessage, *, tags: list[str] | None = None) -> None:
         identity = self._message_identity(message)
         if identity is not None and identity in self._persisted_message_identities:
             return
-        self._put(event_type="llm.tool.result", category="message", content=message.model_dump())
+        caller = self._identify_caller(tags, default="")
+        if not caller and getattr(message, "tool_call_id", None) in self._current_run_tool_call_names:
+            caller = "lead_agent"
+        self._put(event_type="llm.tool.result", category="message", content=message.model_dump(),
+                  metadata={"caller": caller} if caller else None)
         identity = self._message_identity(message)
         if identity:
             self._persisted_message_identities.add(identity)
@@ -778,7 +785,7 @@ class RunJournal(BaseCallbackHandler):
         if not exc and should_continue:
             self._start_flush_on_owner_loop()
 
-    def _identify_caller(self, tags: list[str] | None) -> str:
+    def _identify_caller(self, tags: list[str] | None, *, default: str = "lead_agent") -> str:
         _tags = tags or []
         for tag in _tags:
             if isinstance(tag, str) and (tag.startswith("subagent:") or tag.startswith("middleware:") or tag == "lead_agent"):
@@ -786,7 +793,7 @@ class RunJournal(BaseCallbackHandler):
         # Default to lead_agent: the main agent graph does not inject
         # callback tags, while subagents and middleware explicitly tag
         # themselves.
-        return "lead_agent"
+        return default
 
     def _record_model_usage(
         self,

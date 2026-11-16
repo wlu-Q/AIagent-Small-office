@@ -553,7 +553,7 @@ class OfficeEmployeeService:
             staging.mkdir(parents=True, exist_ok=False)
             from deerflow.office.tool_contract import default_tool_manifest
             from deerflow.office.tool_manifest import save_tool_manifest
-            manifest = default_tool_manifest(template.tool_groups, template.authority)
+            manifest = default_tool_manifest(template.tool_groups, template.authority, default_tools=template.default_tools)
             save_tool_manifest(staging, manifest, expected_revision='')
             (staging / '.office-library-tool-v1').write_text('1\n', encoding='ascii')
             _write_yaml(staging / "config.yaml", config)

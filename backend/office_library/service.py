@@ -76,7 +76,7 @@ class LibraryService:
         with self.db() as db:
             row = db.execute("SELECT value FROM meta WHERE key='config'").fetchone()
         saved = json.loads(row[0]) if row else {}
-        return decrypt_config(saved)
+        return decrypt_config(saved, scope=self.root)
 
     def _rebuild(self):
         with self.db() as db:
@@ -85,7 +85,7 @@ class LibraryService:
 
     def settings(self):
         rebuild = self._rebuild()
-        config = decrypt_config(rebuild['config']) if rebuild else self._config()
+        config = decrypt_config(rebuild['config'], scope=self.root) if rebuild else self._config()
         for kind in MODEL_KINDS:
             config[f'{kind}ApiKeyConfigured'] = bool(config.pop(f'{kind}_api_key', ''))
         return {**config, 'rebuilding': rebuild is not None}
@@ -94,12 +94,12 @@ class LibraryService:
         config = validate_config(values)
         with self.lock, self.db() as db:
             rebuild = self._rebuild()
-            old = decrypt_config(rebuild['config']) if rebuild else self._config()
+            old = decrypt_config(rebuild['config'], scope=self.root) if rebuild else self._config()
             for kind, label in (('embedding', '向量'), ('rerank', '精排')):
                 key = values.get(f'{kind}_api_key', '').strip() or old[f'{kind}_api_key']
                 if not key:
                     raise LibraryInputError(f'请填写{label}模型 API Key', code=f'errors.{kind}_key_required')
-                config[f'{kind}_secret'] = protect(key if os.name == 'nt' else values.get(f'{kind}_api_key', '').strip())
+                config[f'{kind}_secret'] = protect(key if os.name == 'nt' or sys.platform == 'darwin' else values.get(f'{kind}_api_key', '').strip(), scope=self.root)
             if rebuild:
                 if any(config[k] != rebuild['config'][k] for k in DEFAULTS):
                     raise LibraryInputError('索引重建期间只能更新密钥，请处理完失败资料再更换模型', code='errors.only_keys_can_be_updated_while_rebuilding_the_index_resolve_failed_documents')
@@ -127,7 +127,7 @@ class LibraryService:
 
     def test_connection(self):
         rebuild = self._rebuild()
-        config = decrypt_config(rebuild['config']) if rebuild else self._config()
+        config = decrypt_config(rebuild['config'], scope=self.root) if rebuild else self._config()
         provider = self.provider_factory(config)
         vectors = provider.embed(['办公室资料库保存内部规范。', '天气晴朗。'])
         ranking = provider.rerank('内部规范存放在哪里', ['办公室资料库保存内部规范。', '天气晴朗。'])
@@ -288,7 +288,7 @@ class LibraryService:
             config = self._config()
             rebuild = self._rebuild()
             if rebuild and job['id'] in rebuild['versions'].values():
-                config = decrypt_config(rebuild['config'])
+                config = decrypt_config(rebuild['config'], scope=self.root)
             fingerprint = json.dumps([config['embedding_url'], config['embedding_model']])
             provider = self.provider_factory(config)
             vectors = []

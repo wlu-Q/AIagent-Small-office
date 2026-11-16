@@ -105,7 +105,7 @@ def test_hirable_templates_state_the_scope_boundary_and_pm_does_not() -> None:
     assert SCOPE_BOUNDARY_RULE not in get_employee_template("pm").prompt
 
 
-def test_pm_is_only_delegating_template_and_has_no_default_project_write_tools() -> None:
+def test_pm_is_only_delegating_template_and_defaults_to_editing_and_planning() -> None:
     pm = get_employee_template("pm")
     regular_templates = [
         template for template in list_employee_templates() if not template.is_pm
@@ -114,8 +114,9 @@ def test_pm_is_only_delegating_template_and_has_no_default_project_write_tools()
     assert pm.authority.can_delegate is True
     assert "file:write" not in pm.authority.denied_tool_groups
     assert "bash" not in pm.authority.denied_tool_groups
-    assert "file:write" not in pm.tool_groups
+    assert "file:write" in pm.tool_groups
     assert "bash" not in pm.tool_groups
+    assert pm.default_tools == ("write_todos",)
     assert all(template.authority.can_delegate is False for template in regular_templates)
 
 
@@ -137,9 +138,13 @@ async def test_new_pm_gets_independent_skills_without_overwriting_existing_pm(tm
     config_path = agent_dir / "config.yaml"
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     assert set(config["skills"]) >= {
-        "office-requirements-analysis", "office-architecture-design", "office-task-planning", "office-visualization",
+        "office-requirements-analysis", "office-architecture-design", "office-task-planning",
     }
-    assert "office-visualization" in config["runtime_contract"]["skills"]
+    assert "office-visualization" not in config["skills"]
+    assert "office-visualization" not in config["runtime_contract"]["skills"]
+    tools = yaml.safe_load((agent_dir / "tools.yaml").read_text(encoding="utf-8"))["tools"]
+    assert {"apply_patch", "write_todos", "powershell_list", "powershell_read"} <= set(tools)
+    assert not {"powershell_terminal", "powershell_run", "powershell_stop", "bash"} & set(tools)
     assert all("office-visualization" not in template.skills for template in list_employee_templates() if not template.is_pm)
     # Simulate a persisted, customized employee; startup must not migrate it.
     config["skills"] = ["find-skills"]
@@ -149,6 +154,24 @@ async def test_new_pm_gets_independent_skills_without_overwriting_existing_pm(tm
     before = {p.name: p.read_bytes() for p in agent_dir.iterdir() if p.is_file()}
     await service.ensure_builtin_pm(default_model_profile_id=MODEL_PROFILE_ID)
     assert {p.name: p.read_bytes() for p in agent_dir.iterdir() if p.is_file()} == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("template_id", ["frontend-engineer", "backend-engineer"])
+async def test_developer_templates_default_to_all_five_visible_tool_choices(tmp_path, template_id):
+    from test_office_employee_lifecycle import MODEL_PROFILE_ID, build_employee_service
+
+    service, _, _ = build_employee_service(tmp_path)
+    await service.create_employee({
+        "id": "developer", "displayName": "开发员工", "templateId": template_id,
+        "modelProfileId": MODEL_PROFILE_ID, "avatar": "adam",
+    })
+    agent_dir = service.paths.user_agents_dir("default") / "developer"
+    tools = set(yaml.safe_load((agent_dir / "tools.yaml").read_text(encoding="utf-8"))["tools"])
+    assert {"read_file", "ls", "glob", "grep", "apply_patch", "web_search", "web_fetch",
+            "image_search", "search_office_library", "powershell_terminal"} <= tools
+    assert "bash" not in tools
+    assert "write_todos" not in tools
 
 
 def test_gateway_lists_only_creatable_template_public_fields() -> None:

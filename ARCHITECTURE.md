@@ -100,7 +100,7 @@ PM 的“任务计划”和“编辑文件”由配置页勾选、保存到 `too
 - `execution_workspace.py` 沿用执行收据数据库保存稳定工作区和使用关系。普通 task 默认 `current`，私聊直接操作绑定项目；明确选择 `new/continue/fork` 才新建、复用或分叉 worktree，不按工具权限自动创建。路径从开始固定，Git 准备由实际工具在线程中完成，委派 claim 也移出事件循环。Run 返回不冻结，不要求读后版本收据，原项目 HEAD/index 不变。发布工具按员工工具合同装配，不随任务默认目录隐藏；绑定目录任务通过显式 target 选择已有独立工作区进行整合。终端列表沿原执行记录提供命令摘要、cwd 和预览端口，不维护额外 ready 状态；委派返回携带该任务实际预览执行引用。
 - `publish_task_result(target?, source_workspace_ids?)` 保存正常员工修改，以原生 `git merge` 合入来源和用户当前文件基线，再通过不修改 index 的 `git apply` 写回绑定目录。与 `apply_patch`、终端共用执行环境解析，显式 target 可选择已有工作区，不改变默认环境、不按目录隐藏授权工具。冲突保留真实未合并索引及 `MERGE_HEAD`，由普通 Git 暂存、提交或中止，不造冲突提交、不扫描标记。临时 index 和内部来源引用保留用户未提交内容；用户 HEAD/index 不变。批准沿原入口，无备用覆盖路径。task 传递配对交付工具 artifact 的有界操作记录，不传播发布资格，也不在收尾扫描或提交工作区。
 - `task` 使用 `workspace_mode/workspace_id`，删除 `dependency_refs` 及冻结成果资格判断。同一用户/项目可跨 Run、员工继续真实工作区，原失败/超时收据不改写。当前执行员工来自 runtime。多员工独立成果由 PM 协调合并，冲突在 worktree 解决后回写，不另造验收流程。
-- Windows 进程树仍由 `sandbox/local/managed_command.py` 管理，四个 PowerShell 工具沿用原进程库、权限和 FIFO。`powershell_run/list(target="project")` 操作绑定目录，也可指定同用户/项目工作区 ID；本次选择不切换默认环境。临时命令按 Run/原生任务收尾，不停止其他使用者或保留的预览服务。旧 Office bash 拒绝执行，其他工具沿原 Authority/MCP 权限，不再套额外操作白名单。
+- Windows 与 macOS 的命令进程由 `sandbox/local/managed_command.py` 管理，分别使用 Windows Job Object 和 POSIX 进程组；四个 PowerShell 工具沿用原进程库、权限和 FIFO。`powershell_run/list(target="project")` 操作绑定目录，也可指定同用户/项目工作区 ID；本次选择不切换默认环境。临时命令按 Run/原生任务收尾，不停止其他使用者或保留的预览服务。旧 Office bash 拒绝执行，其他工具沿原 Authority/MCP 权限，不再套额外操作白名单。
 
 PM 装配、派工准入和 Run 生命周期均已解除固定阶段控制。客户端通过群聊 `runTargets` 跟踪真实 Run，历史任务与验证记录保持只读。
 

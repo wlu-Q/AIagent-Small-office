@@ -24,6 +24,7 @@ class EmployeeTemplate:
     skills: tuple[str, ...]
     tool_groups: tuple[str, ...]
     authority: AgentAuthoritySpec
+    default_tools: tuple[str, ...] = ()
 
 
 # 跨岗位共用的边界规则，追加在可招聘岗位默认文案的末尾。员工的岗位范围只由 SOUL 里的
@@ -58,9 +59,10 @@ _TEMPLATES = (
         category="项目协调",
         tags=("需求澄清", "任务拆分", "员工指派", "范围控制", "结果汇总"),
         specialties=("目标提炼", "验收标准", "依赖分析", "风险识别", "能力匹配"),
-        skills=("find-skills", "office-requirements-analysis", "office-architecture-design", "office-task-planning", "office-visualization"),
-        tool_groups=("file:read", "web"),
+        skills=("find-skills", "office-requirements-analysis", "office-architecture-design", "office-task-planning"),
+        tool_groups=("file:read", "file:write", "web"),
         authority=DELEGATING_AUTHORITY,
+        default_tools=("write_todos",),
     ),
     # 参考 agency-agents-zh/product/product-manager.md，删除其组织流程、指标阈值和固定交付模板。
     EmployeeTemplate(
@@ -93,8 +95,9 @@ _TEMPLATES = (
         tags=("前端开发", "界面实现", "组件开发", "前端工程化"),
         specialties=("React", "Vue", "TypeScript", "HTML/CSS", "Vite", "响应式", "可访问性", "性能优化"),
         skills=("find-skills", "frontend-design", "web-design-guidelines"),
-        tool_groups=("file:read", "file:write", "bash", "web"),
+        tool_groups=("file:read", "file:write", "web"),
         authority=DEFAULT_AUTHORITY,
+        default_tools=("powershell_terminal",),
     ),
     # 参考 agency-agents-zh/engineering/engineering-backend-architect.md，删除其分布式规模与运维环境假设。
     EmployeeTemplate(
@@ -110,8 +113,9 @@ _TEMPLATES = (
         tags=("后端开发", "API 开发", "数据库", "服务端架构"),
         specialties=("REST API", "GraphQL", "数据建模", "SQL", "认证授权", "缓存", "性能", "可靠性"),
         skills=("find-skills", "code-documentation"),
-        tool_groups=("file:read", "file:write", "bash", "web"),
+        tool_groups=("file:read", "file:write", "web"),
         authority=DEFAULT_AUTHORITY,
+        default_tools=("powershell_terminal",),
     ),
     # 综合参考 agency-agents-zh/testing 下的 reality-checker、evidence-collector 与 api-tester。
     EmployeeTemplate(

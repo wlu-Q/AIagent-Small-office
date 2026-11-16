@@ -21,6 +21,10 @@ from deerflow.skills.types import Skill
 _read_scope: ContextVar[Callable[[str], str | None] | None] = ContextVar("skill_read_scope", default=None)
 
 
+def current_skill_read_scope():
+    return _read_scope.get()
+
+
 def skill_read_allowed(path: str | Path) -> bool:
     """Check a Sandbox-resolved path within this tool invocation only."""
     check = _read_scope.get()

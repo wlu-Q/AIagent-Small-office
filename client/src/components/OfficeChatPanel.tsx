@@ -1246,7 +1246,9 @@ function OfficeChatSession({ open, setOpen, projectId, onResetComplete }: { open
     const owner = trackedRuns.find((run) => run.runId === event.runId)?.employeeId
       || activeTargetsRef.current.find(target => target.runId === event.runId)?.employeeId
     // Assignment events describe the owner's action, not the assignee speaking.
-    const speakerId = (event.kind === 'assignment' ? owner : event.employeeId || owner) || selectedEmployee?.id
+    const speakerId = event.kind === 'tool' && event.caller !== 'lead_agent'
+      ? event.employeeId
+      : (event.kind === 'assignment' ? owner : event.employeeId || owner) || selectedEmployee?.id
     const historicalSender = groupMessages.find(message => message.sourceRunId === event.runId && message.senderId === speakerId)
     const { name: employeeName, avatar: employeeAvatar } = chatSender(speakerId, employees, historicalSender)
     const activityDetail = event.kind === 'assignment'

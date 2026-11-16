@@ -9,7 +9,7 @@
 一间运行在你电脑上的像素办公室。招聘 AI 员工、接入自己的模型，<br>
 在群聊里交代目标，让项目经理协调分工，在同一个窗口里跟进过程和查看成果。
 
-**Windows x64 · English / 简体中文 · MIT**
+**Windows x64 · macOS 15+（Apple Silicon）· English / 简体中文 · MIT**
 
 [认识办公室](#about) · [组建团队](#team) · [开始使用](#quick-start) · [模型接入](#models) · [开发与文档](#development)
 
@@ -112,7 +112,7 @@
 
 ## 开始使用
 
-小小办公室支持 **Windows x64**。克隆仓库后，按[源码启动步骤](#development)完成环境准备，再开始第一项工作。
+小小办公室支持 **Windows x64** 和 **macOS 15+ 的 Apple Silicon（arm64）设备**。克隆仓库后，按[源码启动步骤](#development)完成环境准备，再开始第一项工作。
 
 ### 四步开始第一项工作
 
@@ -153,7 +153,7 @@
 | Python | 3.12.13 |
 | uv | 0.11.28 |
 
-在仓库根目录打开 PowerShell，首次准备时执行：
+在 **Windows x64** 上，于仓库根目录打开 PowerShell，首次准备时执行：
 
 ```powershell
 npm ci
@@ -169,6 +169,24 @@ npm run dev:check
 npm run dev
 ```
 
+在 **macOS 15+ 的 Apple Silicon 设备**上，于仓库根目录打开终端，使用原生 arm64 的 Node.js 和 Python：
+
+```bash
+npm ci
+npm --prefix client ci
+uv sync --directory backend --locked
+
+# 首次启动前，复制无密钥配置模板。
+# 已有 config.yaml 时保留自己的配置，跳过这一行。
+cp -n desktop/packaging/defaults/config.yaml config.yaml
+
+npm run runtime:prepare
+npm run dev:check
+npm run dev
+```
+
+Mac 环境准备会下载自带的 Node.js、Git 和 PowerShell。两种平台的员工终端均使用 PowerShell 7。项目位于桌面、文稿、下载或外接磁盘时，请在 macOS 弹窗中允许应用访问所选目录。
+
 启动后，在初始化界面配置自己的模型。准备依赖和运行时需要联网。
 
 常用开发入口：
@@ -179,15 +197,17 @@ npm run dev
 | 检查语言资源 | `npm --prefix client run check:i18n` |
 | 验证双语桌面流程 | `npm run test:i18n` |
 | 验证桌面基本边界与渲染 | `npm run test:minimum` |
+| 在 Apple Silicon Mac 上构建本地 DMG | `npm run package:mac` |
 
 完整的启动、打包、验证和排查说明见 [运行与维护说明](docs/development.zh-CN.md)。
 
-自动检查见 [Windows CI](.github/workflows/ci.yml)，贡献与验证方式见 [贡献说明](CONTRIBUTING.md)。CI 使用隔离数据和本地受控模型。
+自动检查见 [Windows CI](.github/workflows/ci.yml)，贡献与验证方式见 [贡献说明](CONTRIBUTING.md)。CI 使用隔离数据和本地受控模型；macOS 检查在 Apple Silicon Mac 上本地执行。
 
 ## 已知限制
 
-- **仅支持 Windows x64。**
+- **平台范围。** 支持 Windows x64 和 macOS 15+ 的 Apple Silicon（arm64）设备，暂不支持 Intel Mac 和 Linux。
 - **Windows 安装包。** 本次只发布源码。已有安装包约 463 MB，**未签名**，使用默认 Electron 图标。运行时可能被 SmartScreen 拦截。
+- **macOS 安装包。** `npm run package:mac` 生成采用 ad-hoc 签名、未经公证的本地测试 DMG。正式分发使用 `npm run package:mac:release`，需要在 Mac 上配置 Developer ID 签名与 Apple 公证凭据。本地测试包可能被 Gatekeeper 拦截。
 - **本地单用户 Gateway。** 桌面启动时默认免鉴权（`DEER_FLOW_AUTH_DISABLED=1`）。请只在本机访问 Gateway，切勿暴露到公网。
 - **模型费用。** 默认配置为 `subagents.token_budget.enabled=false`。用高价模型跑长任务时，没有内置的费用熔断。
 - **无 OS 级沙箱。** Git worktree 分隔并行文件修改，审批控制特定操作。命令仍以本机用户的操作系统权限执行。
@@ -249,4 +269,6 @@ npm run dev
 
 小小办公室的自有代码与角色素材采用 [MIT License](LICENSE)，保留第三方许可证和已有署名。
 
-办公室地图与 Phaser 可视化基于 [SkyOffice](https://github.com/kevinshen56714/SkyOffice) 修改。基于 [DeerFlow](https://github.com/bytedance/deer-flow) 进行二次开发，其许可副本见 [MIT 许可](backend/DEERFLOW_LICENSE)。感谢两个开源项目。
+办公室地图与 Phaser 可视化基于 [SkyOffice](https://github.com/kevinshen56714/SkyOffice) 修改。
+
+小小办公室以 [DeerFlow](https://github.com/bytedance/deer-flow) 作为 Agent 运行底座，在其之上进行了大量二次开发，包括本地桌面应用与像素办公室、员工管理与能力驱动的任务委派、Git worktree 并行协作与成果写回、执行审批、办公室资料库、中英文界面，以及 Windows/macOS 平台适配。项目保留 DeerFlow 的 [MIT 许可](backend/DEERFLOW_LICENSE)及上游署名。感谢两个开源项目。

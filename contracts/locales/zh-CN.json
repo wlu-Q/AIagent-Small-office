@@ -509,6 +509,7 @@
   "desktop.gateway_returned_a_non_json_response_http_value": "Gateway 返回了非 JSON 响应（HTTP {{value1}}）",
   "desktop.gateway_request_failed_http_value": "Gateway 请求失败（HTTP {{value1}}）",
   "desktop.gateway_request_timed_out_value": "Gateway 请求超时：{{value1}}",
+  "desktop.bootstrap_result_unconfirmed": "初始化请求超时，结果尚未确认。请重新加载查看实际状态；未自动重试初始化。",
   "desktop.this_window_cannot_access_files_or_open_links": "不允许此窗口访问文件或打开链接",
   "desktop.invalid_url": "网址无效",
   "desktop.only_http_https_urls_without_credentials_are_allowed": "仅支持不含账号密码的 HTTP/HTTPS 网址",

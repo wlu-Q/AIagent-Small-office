@@ -223,7 +223,7 @@ def test_terminal_tools_preserve_native_paths_and_redact_secrets(setup, monkeypa
         response = json.loads(tool.func(runtime, execution_id=result['execution_id']).content)
         assert project in response['stdout']
         assert secret not in json.dumps(response)
-    listed = json.loads(powershell_list.func(runtime, target='project').content)['executions']
+    listed = json.loads(powershell_list.func(runtime, target='project', include_finished=True).content)['executions']
     assert project in listed[0]['command'] and secret not in listed[0]['command']
 
 
@@ -282,29 +282,32 @@ def test_preview_survives_task_end_but_not_execution_deadline(setup):
 
 
 def test_background_continue_http_preview_and_stop(setup):
+    import socket
     import urllib.request
     root = Path(setup[1]['root_path'])
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        port = probe.getsockname()[1]
     (root / 'package.json').write_text(json.dumps({'scripts': {'dev': 'node server.cjs'}}))
-    (root / 'server.cjs').write_text("require('node:http').createServer((req,res)=>res.end(require('node:fs').readFileSync('README.md'))).listen(Number(process.env.OFFICE_PREVIEW_PORT),'127.0.0.1')")
+    (root / 'server.cjs').write_text(f"require('node:http').createServer((req,res)=>res.end(require('node:fs').readFileSync('README.md'))).listen({port},'127.0.0.1')")
     command = 'npm.cmd run dev'
     started = time.monotonic()
     server = run(setup, command, purpose='preview_service', yield_ms=50)
     assert time.monotonic() - started < 3 and server['status'] == 'running'
-    assert 'ready' not in server
+    assert 'ready' not in server and 'preview_port' not in server
     entry = next(item for item in setup[0].list(setup[1]['workspace_id']) if item['execution_id'] == server['execution_id'])
     assert entry['resolved_cwd'] == str(root)
     assert entry['command'] == command
-    assert entry['preview_port'] == server['preview_port']
+    assert 'preview_port' not in entry
     assert entry['status'] == 'running' and 'ready' not in entry
     assert run(setup, "Write-Output 'continued'", call='next')['status'] == 'succeeded'
     from deerflow.office.delegation_memory import execution_evidence
     summary = execution_evidence(setup[3].store, setup[1], work=setup[4], employee_id='writer')
     preview = summary['executions'][0]
     assert preview['execution_id'] == server['execution_id']
-    assert preview['preview_port'] == server['preview_port']
+    assert 'preview_port' not in preview
     assert preview['resolved_cwd'] == str(root)
     assert 'command' not in preview and 'ready' not in preview
-    port = server['preview_port']
     deadline = time.monotonic() + 10
     while True:
         try:
@@ -693,6 +696,7 @@ def test_powershell_object_output_is_flushed_before_wrapper_exit(setup):
 
 @pytest.mark.parametrize('target_kind', ['default', 'project', 'worktree'])
 def test_preview_directory_is_explicit_and_survives_run_return(setup, target_kind):
+    import socket
     import urllib.request
     from deerflow.office.workspace_delivery import publish
     from deerflow.sandbox.powershell_tools import powershell_run, powershell_read, powershell_stop
@@ -705,15 +709,19 @@ def test_preview_directory_is_explicit_and_survives_run_return(setup, target_kin
     runtime = SimpleNamespace(context=context, tool_call_id='preview', state={})
     target = {} if target_kind == 'default' else {'target': workspace['workspace_id'] if target_kind == 'worktree' else 'project'}
     expected_root = Path(workspace['root_path']) if target_kind == 'worktree' else project
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        port = probe.getsockname()[1]
     message = powershell_run.func(runtime, **target, purpose='preview_service', yield_ms=0,
-        command="node -e \"require('http').createServer((req,res)=>res.end(require('fs').readFileSync('README.md'))).listen(Number(process.env.OFFICE_PREVIEW_PORT),'127.0.0.1')\"")
+        command=f"node -e \"require('http').createServer((req,res)=>res.end(require('fs').readFileSync('README.md'))).listen({port},'127.0.0.1')\"")
     assert message.status == 'success'
     preview = json.loads(message.content)
+    assert 'preview_port' not in preview
     assert Path(preview['resolved_cwd']) == expected_root
     deadline = time.monotonic() + 10
     while True:
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{preview['preview_port']}", timeout=1) as response:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}", timeout=1) as response:
                 assert response.read() == (expected_root / 'README.md').read_bytes()
             break
         except OSError:
@@ -725,7 +733,7 @@ def test_preview_directory_is_explicit_and_survives_run_return(setup, target_kin
     runtime.tool_call_id = 'direct-edit'
     edited = powershell_run.func(runtime, command="Set-Content -LiteralPath 'README.md' -Value 'updated bound project'", yield_ms=10000)
     assert json.loads(edited.content)['status'] == 'succeeded'
-    with urllib.request.urlopen(f"http://127.0.0.1:{preview['preview_port']}", timeout=1) as response:
+    with urllib.request.urlopen(f"http://127.0.0.1:{port}", timeout=1) as response:
         assert response.read() == (expected_root / 'README.md').read_bytes()
     inspected = powershell_read.func(runtime, execution_id=preview['execution_id'], wait_ms=0)
     assert json.loads(inspected.content)['status'] == 'running'
@@ -787,7 +795,8 @@ def test_pm_can_query_employee_execution_without_authorizing_commands(setup, mon
         raise PermissionError('PM cannot execute commands')
 
     monkeypatch.setattr(terminal, 'authorize_execution', deny_execution)
-    listed = powershell_list.func(runtime, target='project')
+    assert json.loads(powershell_list.func(runtime, target='project').content)['executions'] == []
+    listed = powershell_list.func(runtime, target='project', include_finished=True)
     assert listed.status == 'success'
     assert command['execution_id'] in listed.content
     output = powershell_read.func(runtime, execution_id=command['execution_id'])

@@ -51,19 +51,28 @@ Checkpoint、Event Bus 或 Agent Loop。
 
 ## 安装
 
-要求 Python 3.12+ 与 `uv`。
+桌面支持 Windows x64 和 macOS 15+ 的 Apple Silicon（arm64）设备。使用仓库固定的 Python 3.12.13 与 uv 0.11.28，Mac 使用原生 arm64 环境。完整桌面准备步骤见[根目录 README](../README.zh-CN.md#development)。
 
 ```powershell
-Set-Location backend
-uv sync
+cd backend
+uv sync --locked
 ```
 
-项目配置位于仓库根目录：
+项目配置位于仓库根目录。在 Windows PowerShell 中首次创建配置：
 
 ```powershell
 Copy-Item ..\config.example.yaml ..\config.yaml
 Copy-Item ..\extensions_config.example.json ..\extensions_config.json
 ```
+
+在 macOS 终端中首次创建配置：
+
+```bash
+cp -n ../config.example.yaml ../config.yaml
+cp -n ../extensions_config.example.json ../extensions_config.json
+```
+
+已有配置时跳过对应复制命令。员工终端在两种平台均使用 PowerShell；通过桌面入口启动时按根目录 README 准备自带运行时。
 
 密钥优先使用环境变量，不提交真实凭据。
 

@@ -2,15 +2,15 @@
 
 ## Supported versions · 支持版本
 
-Security fixes target the latest source version, currently `1.0.6`.
+Security fixes target the latest source version, currently `1.0.8`.
 
-仅维护最新源码版本的安全修复，当前为 `1.0.6`。
+仅维护最新源码版本的安全修复，当前为 `1.0.8`。
 
 ## Reporting a vulnerability · 私下报告漏洞
 
-Use **Report a vulnerability** in [GitHub Security Advisories](https://github.com/wlu-Q/Small-office/security/advisories) to report privately. Avoid public issues for vulnerability details.
+Use **Report a vulnerability** in [GitHub Security Advisories](https://github.com/wlu-Q/AIagent-Small-office/security/advisories) to report privately. Avoid public issues for vulnerability details.
 
-请通过 [GitHub Security Advisories](https://github.com/wlu-Q/Small-office/security/advisories) 的 **Report a vulnerability** 私下报告，避免在公开 Issue 中披露漏洞详情。
+请通过 [GitHub Security Advisories](https://github.com/wlu-Q/AIagent-Small-office/security/advisories) 的 **Report a vulnerability** 私下报告，避免在公开 Issue 中披露漏洞详情。
 
 ## Security model · 安全边界
 

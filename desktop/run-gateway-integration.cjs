@@ -1,6 +1,7 @@
 // One reproducible command owns both test processes and their isolated data.
 const { spawn } = require('node:child_process')
 const { gatewayEnv } = require('./gateway-env.cjs')
+const { developmentPython } = require('./runtime-paths.cjs')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -13,7 +14,7 @@ let gateway
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 async function startGateway(port, reuse = false) {
   const log = fs.openSync(logPath, 'a')
-  gateway = spawn(path.join(root, 'backend/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),
+  gateway = spawn(developmentPython(path.join(root, 'backend')),
     ['tests/office_gateway_fixture.py', path.join(data, 'home'), String(port), ...(reuse ? ['--reuse'] : [])], { cwd: path.join(root, 'backend'),
       env: { ...gatewayEnv('127.0.0.1', port), OPENBLAS_NUM_THREADS: '1', OMP_NUM_THREADS: '1',
         ...(process.argv.includes('--bootstrap') ? { OFFICE_TEST_BOOTSTRAP: '1' } : {}),

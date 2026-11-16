@@ -5,6 +5,7 @@ const { createRequire } = require('node:module')
 const { pathToFileURL } = require('node:url')
 const { spawnSync } = require('node:child_process')
 const { gatewayEnv } = require('./gateway-env.cjs')
+const { developmentPython, runtimePaths } = require('./runtime-paths.cjs')
 
 function checkPrerequisites(root) {
   const localRequire = createRequire(path.join(root, 'package.json'))
@@ -22,16 +23,24 @@ function checkPrerequisites(root) {
   try { createRequire(path.join(root, 'client/package.json')).resolve('vite') } catch {
     throw new Error('前端依赖缺失，请运行 npm --prefix client ci')
   }
-  const python = path.join(root, 'backend/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python')
+  const python = developmentPython(path.join(root, 'backend'))
   if (!fs.existsSync(python)) throw new Error('后端环境缺失，请在 backend 目录运行 uv sync')
   const config = process.env.DEER_FLOW_CONFIG_PATH || path.join(root, 'config.yaml')
   if (!fs.existsSync(config)) throw new Error('缺少 config.yaml，请参考 config.example.yaml 配置模型与后端')
   // Validate imports and YAML without printing configuration values or model keys.
-  const check = spawnSync(python, ['-c', 'import sys, uvicorn, deerflow, yaml; assert sys.version_info >= (3, 12); assert isinstance(yaml.safe_load(open(sys.argv[1], encoding="utf-8")), dict)', config], {
+  const check = spawnSync(python, ['-c', 'import sys, uvicorn, deerflow, lancedb, yaml; assert sys.version_info >= (3, 12); assert isinstance(yaml.safe_load(open(sys.argv[1], encoding="utf-8")), dict)', config], {
     cwd: path.join(root, 'backend'), env: gatewayEnv('127.0.0.1', '8001'),
     windowsHide: true, timeout: 20000, stdio: 'ignore',
   })
   if (check.status !== 0) throw new Error('后端预检失败：请确认 Python 3.12+、backend 中 uv sync 已完成，以及 config.yaml 格式正确')
+  if (process.platform === 'darwin') {
+    if (process.arch !== 'arm64') throw new Error('当前 Mac 适配仅面向 Apple Silicon，请使用 arm64 Node 和 Electron')
+    const runtimes = runtimePaths(path.join(root, 'output/packaging/resources'))
+    for (const name of ['node', 'git']) {
+      const result = spawnSync(runtimes[name], ['--version'], { encoding: 'utf8', timeout: 10000 })
+      if (result.status !== 0) throw new Error(`Mac ${name} 运行时不可用，请运行 npm run runtime:prepare`)
+    }
+  }
   const terminal = spawnSync(python, ['-c', 'from deerflow.office.terminal import powershell_executable; powershell_executable()'], {
     cwd: path.join(root, 'backend'), env: gatewayEnv('127.0.0.1', '8001'),
     windowsHide: true, timeout: 20000, encoding: 'utf8',

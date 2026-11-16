@@ -2,18 +2,29 @@
 
 ## 1. 环境
 
-- Python 3.12+
-- `uv`
-- Node.js 与 npm（启动桌面时需要）
+- Windows x64，或 macOS 15+ 的 Apple Silicon（arm64）设备
+- Python 3.12.13、uv 0.11.28
+- Node.js 24.22.2、npm 11.19.1（启动桌面时需要）；Mac 使用原生 arm64 工具链
+
+完整桌面初始化见[根目录 README](../../README.zh-CN.md#development)。下文从仓库根目录准备独立 Gateway。
 
 ## 2. 配置
 
-在仓库根目录：
+在仓库根目录首次创建配置。Windows PowerShell：
 
 ```powershell
 Copy-Item config.example.yaml config.yaml
 Copy-Item extensions_config.example.json extensions_config.json
 ```
+
+macOS 终端：
+
+```bash
+cp -n config.example.yaml config.yaml
+cp -n extensions_config.example.json extensions_config.json
+```
+
+已有配置时跳过对应复制命令。
 
 至少配置一个可用模型。真实密钥使用环境变量，不提交到 Git。
 
@@ -26,10 +37,10 @@ Copy-Item extensions_config.example.json extensions_config.json
 ## 3. 安装依赖
 
 ```powershell
-Set-Location backend
-uv sync
-Set-Location ..
+uv sync --directory backend --locked
 ```
+
+员工终端在两种平台均使用 PowerShell 7。使用 Node 启动入口前，Windows 执行 `npm run runtime:powershell`；macOS 执行 `npm run runtime:prepare`，准备自带 Node、Git 与 PowerShell。
 
 默认 LocalSandbox 不要求 Docker。只有显式选择容器或远程 Sandbox 时才需要对应运行环境。
 
@@ -51,10 +62,20 @@ uv run --no-editable uvicorn app.gateway.app:app --host 127.0.0.1 --port 8001
 
 ## 5. 基础检查
 
+Windows PowerShell：
+
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8001/health
 Invoke-RestMethod http://127.0.0.1:8001/api/models
 Invoke-RestMethod http://127.0.0.1:8001/api/office/project
+```
+
+macOS 终端：
+
+```bash
+curl -fsS http://127.0.0.1:8001/health
+curl -fsS http://127.0.0.1:8001/api/models
+curl -fsS http://127.0.0.1:8001/api/office/project
 ```
 
 如果启用了认证，除健康检查外的请求需要有效会话。
@@ -62,19 +83,17 @@ Invoke-RestMethod http://127.0.0.1:8001/api/office/project
 ## 6. 启动桌面
 
 ```powershell
-npm install
-Set-Location client
-npm install
+npm ci
+npm --prefix client ci
 npm run build
-Set-Location ..
 npm run desktop:start
 ```
 
 开发模式：
 
 ```powershell
-npm run desktop:client
-npm run desktop:start:dev
+npm run dev:check
+npm run dev
 ```
 
 ## 7. 常见问题

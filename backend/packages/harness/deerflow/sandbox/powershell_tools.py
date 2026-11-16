@@ -1,6 +1,7 @@
 """Four ordinary Office tools backed by owned sessions and human approval."""
 import asyncio
 import json
+import platform
 from dataclasses import asdict
 from typing import Annotated, Literal
 from pydantic import Field
@@ -48,7 +49,7 @@ def _call(runtime, name, **args):
         elif name == 'powershell_stop':
             result = manager.stop(args['execution_id'], wid)
         else:
-            result = {'resolved_cwd': workspace['root_path'], 'executions': manager.list(wid)}
+            result = {'resolved_cwd': workspace['root_path'], 'executions': manager.list(wid, include_finished=args.get('include_finished', False))}
         # Reading a failed process or intentionally stopping one is itself a
         # successful management operation. Execution state remains in content.
         failed = name == 'powershell_run' and result.get('status') in {'failed', 'timeout', 'unknown', 'cancelled', 'rejected'}
@@ -78,7 +79,7 @@ def powershell_run(runtime: Runtime, command: Annotated[str, Field(min_length=1,
     edit files; do not stream file contents through this terminal. No interactive
     stdin, password prompts or TUI. Ordinary commands default to the current
     environment; preview services default to the bound project. An explicit
-    target overrides only this command, including worktree-local tests. Use native Windows paths,
+    target overrides only this command, including worktree-local tests. Use native host paths,
     relative paths or (Get-Location).Path, not file-tool paths under /mnt/user-data
     or /mnt/office-workspaces.
 
@@ -98,10 +99,9 @@ def powershell_run(runtime: Runtime, command: Annotated[str, Field(min_length=1,
     from actual output or confirmed project routes/data, never invent them. Report the exact URL
     tested; an HTTP-only check confirms accessibility, not browser rendering or
     interactions. Untested URLs must not inherit another URL's verification.
-    Only preview_service supplies $env:OFFICE_PREVIEW_PORT
-    as a suggested port. Bind previews to 127.0.0.1; keep a working service rather
-    than restarting to match that port. For a Node server reading PORT:
-    $env:PORT=$env:OFFICE_PREVIEW_PORT; npm run dev.
+    Bind previews to 127.0.0.1 on a port you choose and report; the client never
+    receives an allocated port. Keep a working service rather than restarting it.
+    For a Node server reading PORT: $env:PORT=3000; npm run dev.
 
     In approval mode the call blocks until the user allows or rejects the command,
     which yield_ms does not bound. Stop a test-only service before starting another
@@ -153,21 +153,23 @@ def powershell_read(runtime: Runtime, execution_id: str, cursor: str | None = No
 
 
 @tool('powershell_list', parse_docstring=True)
-def powershell_list(runtime: Runtime, target: str | None = None) -> ToolMessage:
-    """List execution IDs, states, command summaries, working directories and preview ports in an environment.
+def powershell_list(runtime: Runtime, target: str | None = None, include_finished: bool = False) -> ToolMessage:
+    """List execution IDs, states, command summaries and working directories in an environment.
 
-    preview_port is the allocated candidate, not proof of the actual listening port.
     Use before starting another service or when you lost an execution ID. This
     never lists arbitrary host processes or another user's/project's executions.
     resolved_cwd identifies the queried directory, even when executions is empty;
     it does not include services in other worktrees of the project.
     When restoring a preview, inspect current sessions and relevant output rather
     than assuming a historical URL is still live.
+    By default returns active and unknown executions only. Known execution IDs
+    remain readable regardless of this list filter.
 
     Args:
         target: Omit for the current environment; project selects the bound directory, or supply an existing workspace ID.
+        include_finished: Include completed, failed, rejected and stopped executions when historical records are needed. Default False.
     """
-    return _call(runtime, 'powershell_list', target=target)
+    return _call(runtime, 'powershell_list', target=target, include_finished=include_finished)
 
 
 @tool('powershell_stop', parse_docstring=True)
@@ -201,6 +203,16 @@ def _async_adapter(fn):
             raise
     return invoke
 
+
+_host = platform.system()
+_host_description = {
+    'Darwin': 'Current host: macOS; shell: PowerShell 7. Use macOS command names and paths, '
+              'such as curl and .venv/bin/python; do not use curl.exe, NUL or Windows drive paths. '
+              'Discard output with Out-Null or $null.',
+    'Windows': 'Current host: Windows; shell: PowerShell 7. Use Windows command names and paths, '
+               'such as curl.exe and .venv/Scripts/python.exe. Discard output with Out-Null or $null.',
+}.get(_host, f'Current host: {_host}; shell: PowerShell 7. Use native host command names and paths.')
+powershell_run.description = _host_description + '\n\n' + powershell_run.description
 
 for _tool in (powershell_run, powershell_read, powershell_list, powershell_stop):
     _tool.coroutine = _async_adapter(_tool.func)

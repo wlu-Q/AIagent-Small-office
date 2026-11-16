@@ -4,9 +4,12 @@ const path = require('node:path')
 const http = require('node:http')
 const net = require('node:net')
 const { spawn } = require('node:child_process')
+const os = require('node:os')
 const { stopOwnedProcess } = require('../process-lifecycle.cjs')
+const { packageLayout } = require('./layout.cjs')
 const root = path.resolve(__dirname, '../..')
-const executable = process.argv[2] ? path.resolve(process.argv[2]) : path.join(root, 'dist/win-unpacked/SmallOffice.exe')
+const requestedExecutable = process.argv.slice(2).find(argument => !argument.startsWith('--'))
+const executable = requestedExecutable ? path.resolve(requestedExecutable) : packageLayout(root).executable
 const defaultProfile = process.argv.includes('--default-profile')
 const freshProfile = process.argv.includes('--fresh-profile')
 const sessionDirectory = process.argv.find(argument => argument.startsWith('--session-dir='))?.slice('--session-dir='.length)
@@ -63,9 +66,11 @@ async function main() {
   delete env.ELECTRON_RUN_AS_NODE
   for (const name of Object.keys(env)) if (name.toLowerCase() === 'path') delete env[name]
   // Prove runtime discovery does not depend on the developer's Python/Node/Git/Pwsh.
-  env.Path = `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`
+  if (process.platform === 'win32') env.Path = `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`
+  else env.PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
   const log = fs.openSync(path.join(folder, 'desktop.log'), 'a')
-  const userData = defaultProfile ? path.join(process.env.APPDATA, 'SmallOffice') : path.join(folder, 'user')
+  const appData = process.platform === 'win32' ? process.env.APPDATA : path.join(os.homedir(), 'Library/Application Support')
+  const userData = defaultProfile ? path.join(appData, 'SmallOffice') : path.join(folder, 'user')
   child = spawn(executable,
     [...(defaultProfile ? [] : [`--user-data-dir=${userData}`]), `--remote-debugging-port=${cdpPort}`],
     { cwd: folder, env, windowsHide: false, stdio: ['ignore', log, log] })

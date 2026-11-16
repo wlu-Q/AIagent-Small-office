@@ -180,13 +180,12 @@ def _latest_non_empty_ai_text(messages: list[Any]) -> str | None:
 
 
 def _latest_captured_ai_text(messages: list[dict[str, Any]] | None) -> str | None:
-    for message in reversed(messages or []):
-        if message.get("type") != "ai":
-            continue
-        text = message_content_to_text(message.get("content")).strip()
-        if text:
-            return text
-    return None
+    if not messages:
+        return None
+    last = messages[-1]
+    if last.get('type') != 'ai' or last.get('tool_calls') or last.get('invalid_tool_calls'):
+        return None
+    return message_content_to_text(last.get('content')).strip() or None
 
 
 def _partial_result(final_state: Any) -> str | None:
@@ -195,7 +194,12 @@ def _partial_result(final_state: Any) -> str | None:
     messages = final_state.get("messages")
     if not isinstance(messages, list):
         return None
-    return _latest_non_empty_ai_text(messages)
+    if not messages or not isinstance(messages[-1], AIMessage):
+        return None
+    last = messages[-1]
+    if last.tool_calls or last.invalid_tool_calls:
+        return None
+    return message_content_to_text(last.content).strip() or None
 
 
 def _extract_final_result(
@@ -576,6 +580,8 @@ class SubagentExecutor:
             if snapshot is not None:
                 contract = restrict_to_tool_snapshot(contract, snapshot)
             middlewares.append(EmployeeToolGuard(employee_dir, contract))
+            from deerflow.agents.middlewares.retrieval_evidence import RetrievalEvidenceMiddleware
+            middlewares.append(RetrievalEvidenceMiddleware())
             middlewares.insert(0, OfficeRoundBudgetMiddleware())
         self._stop_reason_middlewares = [m for m in middlewares if hasattr(m, "consume_stop_reason")]
 

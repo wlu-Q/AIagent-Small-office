@@ -82,11 +82,13 @@ def build_delegation_prompt(*, task_prompt: str, shared_context: Mapping[str, An
         "proposals 是未确认建议，不能视为用户认可。相关 unresolved 冲突影响任务时向 PM 报告。"
         "user_answers 是本次工作按时间排列的用户原话，保留否定和条件；后续更正优先，不把旧回答当成新的任务。"
         "文件工具中的 /mnt/user-data/workspace 对应本次选定的执行目录（绑定项目或 worktree）。按本次任务需要读取文件。"
+        "已有相关文件定位时从该位置继续；针对尚未解决的信息缺口补查，不重复从项目根目录全面探索。"
         "目录不可访问或预期文件缺失时向 PM 报告阻塞，不得改用 uploads/outputs 或其他目录重建项目。"
-        f"命令运行宿主：{platform.system()}。PowerShell 的 target 选择执行环境：普通命令默认使用本次任务目录，"
+        f"命令运行宿主：{'macOS' if platform.system() == 'Darwin' else platform.system()}。PowerShell 的 target 选择执行环境：普通命令默认使用本次任务目录，"
         "preview_service 默认使用绑定项目；显式 target 可选择绑定项目或已有工作区。"
         "cwd 只指定所选环境内的相对子目录，省略时使用该环境根目录。"
         "/mnt/user-data/workspace 是文件工具的虚拟路径，不是 PowerShell 路径。"
-        "Windows 虚拟环境通常使用 .venv/Scripts/python.exe，不假设 .venv/bin/python 总是存在。"
-        "\n<work_data>" + html.escape(json.dumps(payload, ensure_ascii=False)) + "</work_data>"
+        + ("Windows 虚拟环境通常使用 .venv/Scripts/python.exe。" if platform.system() == 'Windows'
+           else "Unix 虚拟环境通常使用 .venv/bin/python，路径区分大小写取决于文件系统。")
+        + "\n<work_data>" + html.escape(json.dumps(payload, ensure_ascii=False)) + "</work_data>"
     )

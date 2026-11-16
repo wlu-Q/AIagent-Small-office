@@ -30,6 +30,7 @@ export type VisibleOfficeRunEvent = {
   detailKey?: string
   detail: string
   employeeId?: string
+  caller?: string
   createdAt?: string
   messageId?: string
   taskId?: string
@@ -127,12 +128,17 @@ function toolDetail(args: Record<string, unknown>) {
 
 export function mergeVisibleRunEvents(events: VisibleOfficeRunEvent[]) {
   const merged = new Map<string, VisibleOfficeRunEvent>()
+  const delegatedCalls = new Set(events.filter(event => event.kind === 'subagent' && event.taskId && event.employeeId && event.callId)
+    .map(event => `${event.runId}:${event.callId}`))
   for (const event of events) {
+    if (event.kind === 'tool' && event.caller !== 'lead_agent' && event.callId
+      && delegatedCalls.has(`${event.runId}:${event.callId}`)) continue
     const scope = `${event.runId}:${event.taskId || ''}`
     const key = event.kind === 'message' && event.messageId ? `${scope}:${event.employeeId || ''}:message:${event.messageId}` : event.callId ? `${scope}:call:${event.callId}` : `${scope}:${event.seq}:${event.kind}:${event.employeeId || ''}`
     const previous = merged.get(key)
     merged.set(key, previous ? {
-      ...previous, status: event.status, hasToolCalls: event.hasToolCalls ?? previous.hasToolCalls,
+      ...previous, caller: event.caller ?? previous.caller, employeeId: event.employeeId ?? previous.employeeId,
+      status: event.status, hasToolCalls: event.hasToolCalls ?? previous.hasToolCalls,
       detail: event.kind === 'message' ? event.detail : previous.detail || event.detail,
     } : event)
   }
@@ -173,6 +179,7 @@ export function projectOfficeRunEvents(events: OfficeRunEvent[]): VisibleOfficeR
         visible.push({
           runId: event.run_id, seq: event.seq, kind: 'tool', label: name, labelKey: name ? undefined : 'ui.tool_execution',
           detail: toolDetail(objectValue(record.args)), createdAt: event.created_at,
+          caller: 'lead_agent',
           callId: typeof record.id === 'string' ? record.id : undefined, status: 'running',
         })
       }
@@ -231,6 +238,7 @@ export function projectOfficeRunEvents(events: OfficeRunEvent[]): VisibleOfficeR
     }
     if (visibleToolEvents.has(event.event_type)) {
       if (/PMResult|workflow.*result/i.test(String(content?.name || ''))) continue
+      const caller = typeof event.metadata.caller === 'string' ? event.metadata.caller : undefined
       visible.push({
         runId: event.run_id,
         seq: event.seq,
@@ -239,6 +247,8 @@ export function projectOfficeRunEvents(events: OfficeRunEvent[]): VisibleOfficeR
         labelKey: content?.name || content?.tool_name ? undefined : 'ui.tool_execution',
         detail: toolDetail(objectValue(content?.args || content?.input)),
         createdAt: event.created_at,
+        caller,
+        employeeId: caller?.startsWith('subagent:') ? caller.slice('subagent:'.length) || undefined : undefined,
         callId: typeof content?.tool_call_id === 'string' ? content.tool_call_id : undefined,
         status: content?.status === 'error' ? 'error' : event.event_type === 'tool.start' ? 'running' : 'done',
       })

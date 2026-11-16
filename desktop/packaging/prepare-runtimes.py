@@ -1,18 +1,32 @@
-"""Assemble relocatable Windows runtimes in ignored build output."""
+"""Assemble native Windows x64 or macOS arm64 runtimes in ignored build output."""
+import argparse
+import copy
 import hashlib
 import json
+import platform
 import shutil
 import subprocess
 import sys
+import tarfile
 import urllib.request
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[2]
 BUILD = ROOT / 'output' / 'packaging'
 CACHE = BUILD / 'cache'
 RESOURCES = BUILD / 'resources'
 RUNTIMES = json.loads((Path(__file__).with_name('runtimes.json')).read_text(encoding='utf-8'))
+
+
+def runtime_spec(system=None, machine=None):
+    system = system or sys.platform
+    machine = (machine or platform.machine()).lower()
+    if system == 'win32' and machine in ('amd64', 'x86_64'):
+        return RUNTIMES
+    if system == 'darwin' and machine in ('arm64', 'aarch64'):
+        return json.loads(Path(__file__).with_name('runtimes.macos.json').read_text(encoding='utf-8'))
+    raise RuntimeError(f'Runtime preparation requires Windows x64 or native macOS arm64; found {system}/{machine}')
 
 
 def run(*args, cwd=ROOT):
@@ -56,6 +70,22 @@ def extract_zip(archive, destination, strip_root=False):
                     shutil.copyfileobj(source, output)
 
 
+def extract_tar(archive, destination, strip_root=False):
+    destination.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive, 'r:gz') as bundle:
+        def checked_member(member, target):
+            member = copy.copy(member)
+            name = PurePosixPath(member.name)
+            if name.is_absolute() or '..' in name.parts:
+                raise ValueError('Archive path escapes its destination')
+            if strip_root:
+                if len(name.parts) < 2:
+                    return None
+                member.name = str(PurePosixPath(*name.parts[1:]))
+            return tarfile.data_filter(member, target)
+        bundle.extractall(destination, filter=checked_member)
+
+
 def reset_runtime(destination):
     target = destination.resolve()
     if not target.is_relative_to(RESOURCES.resolve()) or target == RESOURCES.resolve():
@@ -65,14 +95,20 @@ def reset_runtime(destination):
     target.mkdir(parents=True)
 
 
-def install_zip_runtime(name):
-    spec = RUNTIMES[name]
+def install_runtime(name, specs):
+    spec = specs[name]
     archive = download(spec['url'], spec['url'].rsplit('/', 1)[1], spec['sha256'])
     destination = RESOURCES / name
     marker = destination / '.office-archive-sha256'
     if not marker.is_file() or marker.read_text() != spec['sha256']:
         reset_runtime(destination)
-        extract_zip(archive, destination, strip_root=name == 'node')
+        if spec['url'].endswith('.tar.gz'):
+            extract_tar(archive, destination, strip_root=name == 'node')
+        else:
+            extract_zip(archive, destination, strip_root=name == 'node')
+        if sys.platform == 'darwin' and name == 'powershell':
+            executable = destination / 'pwsh'
+            executable.chmod(executable.stat().st_mode | 0o111)
         marker.write_text(spec['sha256'])
     return destination
 
@@ -85,14 +121,15 @@ def require_version(executable, args, expected):
 
 
 def prepare_powershell():
-    destination = install_zip_runtime('powershell')
-    require_version(destination / 'pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command',
-        '$PSVersionTable.PSVersion.ToString()'], RUNTIMES['powershell']['version'])
+    specs = runtime_spec()
+    destination = install_runtime('powershell', specs)
+    require_version(destination / ('pwsh.exe' if sys.platform == 'win32' else 'pwsh'),
+        ['-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.ToString()'], specs['powershell']['version'])
 
 
 def prepare():
-    if sys.platform != 'win32':
-        raise RuntimeError('Windows x64 runtimes must be prepared on Windows')
+    specs = runtime_spec()
+    windows = sys.platform == 'win32'
     CACHE.mkdir(parents=True, exist_ok=True)
     RESOURCES.mkdir(parents=True, exist_ok=True)
     python_version = (ROOT / 'backend/.python-version').read_text().strip()
@@ -102,37 +139,43 @@ def prepare():
     actual_uv = subprocess.check_output(['uv', '--version'], encoding='utf-8').split()[1]
     if actual_uv != uv_version:
         raise RuntimeError(f'Build requires uv {uv_version}; found {actual_uv}')
-    python_source = CACHE / 'python' / f'cpython-{python_version}-windows-x86_64-none'
-    if not (python_source / 'python.exe').is_file():
-        run('uv', 'python', 'install', python_version, '--install-dir', CACHE / 'python', '--no-bin', '--no-registry')
+    python_platform = 'windows-x86_64-none' if windows else 'macos-aarch64-none'
+    python_executable = 'python.exe' if windows else 'bin/python3'
+    python_source = CACHE / 'python' / f'cpython-{python_version}-{python_platform}'
+    if not (python_source / python_executable).is_file():
+        run('uv', 'python', 'install', f'cpython-{python_version}-{python_platform}',
+            '--install-dir', CACHE / 'python', '--no-bin', *(['--no-registry'] if windows else []))
     python_target = RESOURCES / 'python'
     python_marker = python_target / '.office-python-version'
-    if not python_marker.is_file() or python_marker.read_text() != python_version:
+    if (not python_marker.is_file() or python_marker.read_text() != python_version
+            or not (python_target / python_executable).is_file()):
         reset_runtime(python_target)
-        shutil.copytree(python_source, python_target, dirs_exist_ok=True)
+        shutil.copytree(python_source, python_target, dirs_exist_ok=True, symlinks=not windows)
         python_marker.write_text(python_version)
-    require_version(python_target / 'python.exe', ['--version'], f'Python {python_version}')
+    require_version(python_target / python_executable, ['--version'], f'Python {python_version}')
     lock_hash = hashlib.sha256((ROOT / 'backend/uv.lock').read_bytes()).hexdigest()
     dependency_marker = python_target / '.office-lock-sha256'
     if not dependency_marker.exists() or dependency_marker.read_text() != lock_hash:
         requirements = BUILD / 'requirements.txt'
         subprocess.run(['uv', 'export', '--locked', '--no-dev', '--no-emit-workspace', '--no-editable',
             '--output-file', str(requirements)], cwd=ROOT / 'backend', check=True, stdout=subprocess.DEVNULL)
-        run('uv', 'pip', 'sync', '--python', python_target / 'python.exe',
+        run('uv', 'pip', 'sync', '--python', python_target / python_executable,
             '--require-hashes', '--break-system-packages', requirements)
         dependency_marker.write_text(lock_hash)
 
-    node = install_zip_runtime('node')
-    git = install_zip_runtime('git')
+    node = install_runtime('node', specs)
+    git = install_runtime('git', specs)
     prepare_powershell()
-    run(python_target / 'python.exe', '-c', 'import uvicorn, lancedb, langgraph, yaml; print("Bundled Python imports OK")')
-    require_version(node / 'node.exe', ['--version'], 'v' + RUNTIMES['node']['version'])
-    require_version(git / 'cmd/git.exe', ['--version'], 'git version ' + RUNTIMES['git']['version'])
+    run(python_target / python_executable, '-c', 'import uvicorn, lancedb, langgraph, yaml; print("Bundled Python imports OK")')
+    require_version(node / ('node.exe' if windows else 'bin/node'), ['--version'], 'v' + specs['node']['version'])
+    require_version(git / ('cmd/git.exe' if windows else 'bin/git'), ['--version'], 'git version ' + specs['git']['version'])
     print('Packaged runtimes ready.', flush=True)
 
 
 if __name__ == '__main__':
-    if sys.argv[1:] == ['--powershell-only']:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--powershell-only', action='store_true')
+    if parser.parse_args().powershell_only:
         prepare_powershell()
     else:
         prepare()

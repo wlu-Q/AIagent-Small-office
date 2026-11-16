@@ -676,7 +676,9 @@ class LocalSandbox(Sandbox):
     def list_dir(self, path: str, max_depth=2) -> list[str]:
         resolved_path = self._resolve_path(path)
         require_skill_read_access(resolved_path)
-        entries = list_dir(resolved_path, max_depth)
+        from deerflow.sandbox.retrieval import retrieve_local
+        entries = retrieve_local(self.id, "ls", resolved_path, {"max_depth": max_depth},
+                                 lambda: list_dir(resolved_path, max_depth))
         # Reverse resolve local paths back to container paths and preserve
         # list_dir's trailing "/" marker for directories.
         result: list[str] = []
@@ -722,8 +724,9 @@ class LocalSandbox(Sandbox):
         resolved_path = self._resolve_path(path)
         require_skill_read_access(resolved_path)
         try:
-            with open(resolved_path, encoding="utf-8") as f:
-                content = f.read()
+            from deerflow.sandbox.retrieval import retrieve_local
+            content = retrieve_local(self.id, "read_file", resolved_path, {},
+                                     lambda: Path(resolved_path).read_text(encoding="utf-8"))
             # Only reverse-resolve paths in files that were previously written
             # by write_file (agent-authored content). User-uploaded files,
             # external tool output, and other non-agent content should not be
@@ -783,7 +786,10 @@ class LocalSandbox(Sandbox):
     def glob(self, path: str, pattern: str, *, include_dirs: bool = False, max_results: int = 200) -> tuple[list[str], bool]:
         resolved_path = Path(self._resolve_path(path))
         require_skill_read_access(resolved_path)
-        matches, truncated = find_glob_matches(resolved_path, pattern, include_dirs=include_dirs, max_results=max_results, path_filter=skill_read_allowed)
+        from deerflow.sandbox.retrieval import retrieve_local
+        matches, truncated = retrieve_local(self.id, "glob", resolved_path,
+            {"pattern": pattern, "include_dirs": include_dirs, "max_results": max_results},
+            lambda: find_glob_matches(resolved_path, pattern, include_dirs=include_dirs, max_results=max_results, path_filter=skill_read_allowed))
         return [self._reverse_resolve_path(match) for match in matches], truncated
 
     def grep(
@@ -799,7 +805,10 @@ class LocalSandbox(Sandbox):
     ) -> GrepResult:
         resolved_path = Path(self._resolve_path(path))
         require_skill_read_access(resolved_path)
-        result = find_grep_matches(
+        from deerflow.sandbox.retrieval import retrieve_local
+        result = retrieve_local(self.id, "grep", resolved_path,
+            {"pattern": pattern, "glob": glob, "literal": literal, "case_sensitive": case_sensitive,
+             "max_results": max_results, "offset": offset}, lambda: find_grep_matches(
             resolved_path,
             pattern,
             glob_pattern=glob,
@@ -808,7 +817,7 @@ class LocalSandbox(Sandbox):
             max_results=max_results,
             offset=offset,
             path_filter=skill_read_allowed,
-        )
+        ))
         result.matches = [
             GrepMatch(
                 path=self._reverse_resolve_path(match.path),

@@ -237,6 +237,7 @@ def merge_round_budget(existing: dict | None, new: dict | None) -> dict | None:
 
 
 class ThreadState(AgentState):
+    retrieval_evidence: NotRequired[dict | None]
     office_round_budget: Annotated[dict | None, merge_round_budget]
     sandbox: SandboxStateField
     thread_data: NotRequired[ThreadDataState | None]

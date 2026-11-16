@@ -297,9 +297,9 @@ def employee_tool_contract(agent_dir, config, *, app_config=None, execution_kind
                                   deferred_enabled=app_config.tool_search.enabled)
 
 
-def default_tool_manifest(groups, authority, *, app_config=None):
+def default_tool_manifest(groups, authority, *, app_config=None, default_tools=()):
     catalog = build_tool_catalog(app_config)
-    names = required_tool_names(authority)
+    names = required_tool_names(authority) | set(default_tools)
     defaults = {'search_office_library', 'ask_clarification', 'present_files', 'review_skill_package', 'view_image', 'tool_search', 'memory_search'}
     if authority.can_delegate:
         defaults.update(TERMINAL_QUERIES)

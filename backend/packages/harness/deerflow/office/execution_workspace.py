@@ -435,9 +435,11 @@ def result_reference(value):
 def workspace_guidance(ref):
     location = f'independent worktree {ref["workspace_id"]}' if ref else 'the bound project'
     return (f'Default execution environment: {location}. '
+            'Use relevant evidence already available; inspect known files directly and search only for remaining gaps. '
+            'Repeated identical results add no observed content, but changed files or new questions may require another search. '
             'File-tool paths /mnt/user-data/workspace/ and /mnt/user-data/outputs/ refer to the task environment. '
             "Read another workspace's existing files at /mnt/office-workspaces/<id>/workspace/. "
-            'apply_patch and powershell_run accept target="project" or an existing workspace ID for one operation. '
+            'read_file, ls, glob, grep, apply_patch and powershell_run accept target="project" or an existing workspace ID for one operation. '
             'When assigned to finish and deliver changes held in a worktree, write the remaining changes back '
             'to the bound project, including changes left by an earlier task even if this task makes no new edits. '
             'Necessary writeback is part of the assigned delivery, not a separate task requiring another PM instruction. '
@@ -450,7 +452,9 @@ def workspace_guidance(ref):
             'User-facing installation and preview use the bound project. A service in a worktree is for testing '
             'that workspace; it does not replace delivery to the bound project. '
             'Ordinary PowerShell commands default to the task environment; preview_service defaults to the bound project. '
-            'An explicit target selects the environment for that operation.')
+            'An explicit target selects the environment for that operation. '
+            'Report only checks actually performed; HTTP accessibility, source inspection and logic tests '
+            'do not establish successful browser interactions.')
 
 
 def execution_environment(context, *, paths=None, target=None, prepare=False):

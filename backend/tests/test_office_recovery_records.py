@@ -292,6 +292,47 @@ def test_external_usage_recovery_is_per_call_not_per_model_maximum():
     assert journal.get_completion_data()['total_tokens'] == 1150
 
 
+def test_subagent_usage_is_counted_once_across_event_types():
+    from deerflow.runtime.runs.worker import _event_completion_seed
+
+    events = [
+        dict(event_type='llm.ai.response', seq=1,
+             content={'id': 'pm-message', 'content': 'Planning', 'response_metadata': {'model_name': 'shared'}},
+             metadata={'llm_call_index': 1, 'caller': 'lead_agent',
+                       'usage': {'input_tokens': 150, 'output_tokens': 0, 'total_tokens': 150}}),
+        dict(event_type='llm.ai.response', seq=2,
+             content={'id': 'child-message', 'content': 'Working', 'response_metadata': {'model_name': 'shared'}},
+             metadata={'llm_call_index': 2, 'caller': 'subagent:frontend',
+                       'usage': {'input_tokens': 1000, 'output_tokens': 0, 'total_tokens': 1000}}),
+        dict(event_type='llm.external.usage', seq=3,
+             metadata=dict(source_run_id='child-call', caller='subagent:frontend', model_name='shared',
+                           input_tokens=1000, output_tokens=0, total_tokens=1000)),
+    ]
+    seed = _event_completion_seed(events)
+    assert seed['lead_agent_tokens'] == 150
+    assert seed['subagent_tokens'] == 1000
+    assert seed['total_tokens'] == 1150
+    assert seed['llm_call_count'] == 2
+    assert seed['token_usage_by_model']['shared']['total_tokens'] == 1150
+
+
+def test_journal_does_not_count_subagent_response_alongside_external_usage():
+    from uuid import uuid4
+    from langchain_core.outputs import ChatGeneration, LLMResult
+
+    journal = RunJournal('run-dup', 'thread-dup', MemoryRunEventStore(), user_id='probe')
+    message = AIMessage(content='child reply',
+                        usage_metadata=dict(input_tokens=1000, output_tokens=0, total_tokens=1000))
+    journal.on_llm_end(LLMResult(generations=[[ChatGeneration(message=message)]]),
+                       run_id=uuid4(), tags=['subagent:frontend'])
+    journal.record_external_llm_usage_records([dict(source_run_id='child-call', caller='subagent:frontend',
+        model_name='shared', input_tokens=1000, output_tokens=0, total_tokens=1000, cache_read_tokens=0)])
+    data = journal.get_completion_data()
+    assert data['subagent_tokens'] == 1000
+    assert data['total_tokens'] == 1000
+    assert data['llm_call_count'] == 1
+
+
 @pytest.mark.anyio
 async def test_concurrent_usage_and_terminal_supplement_do_not_reopen_run():
     from deerflow.runtime.runs.manager import RunManager, RunStatus

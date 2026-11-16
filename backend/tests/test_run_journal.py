@@ -345,8 +345,9 @@ class TestLlmCallbacks:
         j.on_llm_end(_make_llm_response("A", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
         j.on_llm_end(_make_llm_response("B", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["subagent:research"])
         j.on_llm_end(_make_llm_response("C", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["middleware:summarization"])
-        # token tracking not broken by caller type
-        assert j._total_tokens == 45
+        # The subagent response is recorded but its usage is booked by the external
+        # usage path, which owns the per-call source_run_id dedup.
+        assert j._total_tokens == 30
         assert j._llm_call_count == 3
 
     @pytest.mark.anyio
@@ -408,6 +409,18 @@ class TestToolCallbacks:
         assert len(messages) == 1
         assert messages[0]["event_type"] == "llm.tool.result"
         assert messages[0]["content"]["type"] == "tool"
+        assert "caller" not in messages[0]["metadata"]
+
+    @pytest.mark.anyio
+    async def test_tool_end_preserves_subagent_caller(self, journal_setup):
+        from langchain_core.messages import ToolMessage
+
+        journal, store = journal_setup
+        result = ToolMessage(content="results", tool_call_id="call_frontend", name="grep")
+        journal.on_tool_end(result, run_id=uuid4(), tags=["subagent:frontend"])
+        await journal.flush()
+        messages = await store.list_messages("t1")
+        assert messages[0]["metadata"]["caller"] == "subagent:frontend"
 
     @pytest.mark.anyio
     async def test_tool_end_with_command_unwraps_tool_message(self, journal_setup):
@@ -1006,6 +1019,9 @@ class TestCallerBucketing:
         j, _ = journal_setup
         usage = {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30}
         j.on_llm_end(_make_llm_response("B", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["subagent:research"])
+        assert j._subagent_tokens == 0
+        j.record_external_llm_usage_records([dict(source_run_id='child-call', caller='subagent:research',
+                                                  model_name='shared', **usage)])
         assert j._subagent_tokens == 30
         assert j._lead_agent_tokens == 0
         assert j._middleware_tokens == 0
@@ -1025,8 +1041,12 @@ class TestCallerBucketing:
         j.on_llm_end(_make_llm_response("B", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["subagent:bash"])
         j.on_llm_end(_make_llm_response("C", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["middleware:title"])
         assert j._lead_agent_tokens == 15
-        assert j._subagent_tokens == 15
+        assert j._subagent_tokens == 0
         assert j._middleware_tokens == 15
+        assert j._total_tokens == 30
+        j.record_external_llm_usage_records([dict(source_run_id='child-call', caller='subagent:bash',
+                                                  model_name='shared', **usage)])
+        assert j._subagent_tokens == 15
         assert j._total_tokens == 45
 
     def test_get_completion_data_includes_buckets(self, journal_setup):

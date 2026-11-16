@@ -10,7 +10,6 @@ import hashlib
 import json
 import os
 import shutil
-import socket
 import subprocess
 import threading
 import time
@@ -49,7 +48,8 @@ def powershell_executable():
         raise RuntimeError('Install PowerShell 7.4+ or set OFFICE_POWERSHELL_EXECUTABLE to its absolute path')
     path = str(Path(raw).resolve())
     result = subprocess.run([path, '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.ToString()'],
-        env=build_sandbox_env(), capture_output=True, text=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+        env=build_sandbox_env(), capture_output=True, text=True, timeout=10,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     if result.returncode or tuple(int(v) for v in result.stdout.strip().split('.')[:2]) < (7, 4):
         raise RuntimeError('Office terminal requires PowerShell 7.4+ for native exit-code handling')
     return path, result.stdout.strip()
@@ -186,12 +186,6 @@ class TerminalManager:
                     status='awaiting_approval' if mode == 'approval' else 'starting', exit_code=None, stdout='', stderr='', retry_root_id=root_id,
                     attempt_index=attempt, retries_remaining=5-attempt, process_identity=None,
                     created_at=time.time(), shell_path=self.shell[0], shell_version=self.shell[1])
-                if purpose == 'preview_service':
-                    # An ephemeral candidate, not a port reservation or readiness
-                    # guarantee. Bind failures must be handled as real failures.
-                    with socket.socket() as candidate:
-                        candidate.bind(('127.0.0.1', 0))
-                        value['preview_port'] = candidate.getsockname()[1]
                 db.execute('INSERT INTO command_executions VALUES (?,?,?,?)', (execution_id, wid, key, json.dumps(value)))
             session = dict(value=value, done=threading.Event(), stop=threading.Event(), process=None, sanitize=sanitize)
             self.sessions[execution_id] = session
@@ -226,8 +220,6 @@ class TerminalManager:
                 skills_dir = self.store.paths.user_custom_skills_dir(self.store.user_id)
                 skills_dir.mkdir(parents=True, exist_ok=True)
                 environment['OFFICE_SKILLS_DIR'] = str(skills_dir.resolve())
-                if purpose == 'preview_service':
-                    environment['OFFICE_PREVIEW_PORT'] = str(value['preview_port'])
                 process = ManagedProcess(args, cwd=cwd, env=environment, secret_values=secret_values, tail_bytes=16000)
                 session['process'] = process
                 value.update(status='running', process_identity=dict(pid=process.process.pid, job_name=process.name,
@@ -335,10 +327,11 @@ class TerminalManager:
         value['output_cursor'] = json.dumps(dict(execution_id=execution_id, offsets=positions))
         return value
 
-    def list(self, workspace_id):
+    def list(self, workspace_id, *, include_finished=False):
         with self.store._connect() as db:
             values = [json.loads(r[0]) for r in db.execute('SELECT state_json FROM command_executions WHERE workspace_id=?', (workspace_id,))]
-        return [command_summary(value) for value in values]
+        return [command_summary(value) for value in values
+                if include_finished or value['status'] in ACTIVE | {'unknown'}]
 
     def stop(self, execution_id, workspace_id):
         self._get(execution_id, workspace_id)
@@ -390,15 +383,13 @@ def command_summary(value):
     summary = {key: value.get(key) for key in (
         'execution_id', 'status', 'purpose', 'exit_code', 'resolved_cwd', 'retry_root_id', 'attempt_index')}
     summary['command'] = value.get('command', '')[:400]
-    if 'preview_port' in value:
-        summary['preview_port'] = value['preview_port']
     return summary
 
 
 def tool_result(value):
     result = {key: value[key] for key in (
         'execution_id', 'status', 'exit_code', 'resolved_cwd', 'purpose', 'stdout', 'stderr',
-        'output_cursor', 'retries_remaining', 'preview_port', 'error') if key in value}
+        'output_cursor', 'retries_remaining', 'error') if key in value}
     if value.get('status') not in ACTIVE:
         tails = {name: tail for name, tail in value.get('output_tail', {}).items() if tail['omitted_characters']}
         if tails:

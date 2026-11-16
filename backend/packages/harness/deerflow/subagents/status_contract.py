@@ -202,7 +202,9 @@ def format_subagent_result_message(
     result_text = "" if result is None else str(result)
     error_text = str(error).strip() if isinstance(error, str) else ""
     capped = _STOP_REASON_LABELS.get(stop_reason) if stop_reason is not None else None
-    partial_suffix = f" Partial result: {result_text}" if result_text.strip() else ""
+    partial_suffix = (f" Partial result: {result_text}" if result_text.strip() else
+                      " No final report was generated; existing execution records and files remain available."
+                      if capped or status in {'cancelled', 'timed_out'} else "")
 
     if status == 'unknown':
         detail = error_text or 'Execution outcome is unknown; the task was not repeated. Inspect existing results before deciding how to continue.'
