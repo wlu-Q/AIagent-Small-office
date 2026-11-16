@@ -558,9 +558,7 @@ async def prepare_persisted_run(
                 f'{persisted_runtime_model_id.strip()!r} to {runtime_model_id!r}'
             )
     run_ctx = replace(run_ctx, app_config=run_app_config)
-    agent_factory = agent_factory_override or resolve_agent_factory(
-        record.assistant_id
-    )
+    agent_factory = agent_factory_override or await asyncio.to_thread(resolve_agent_factory, record.assistant_id)
 
     if config_override is None:
         config = build_run_config(
@@ -787,7 +785,7 @@ async def start_run(
             body,
             trusted_internal=is_internal_caller,
         )
-        agent_factory = resolve_agent_factory(body.assistant_id)
+        agent_factory = await asyncio.to_thread(resolve_agent_factory, body.assistant_id)
         if model_profile_id is not None:
             try:
                 run_app_config = _resolve_run_model_config(

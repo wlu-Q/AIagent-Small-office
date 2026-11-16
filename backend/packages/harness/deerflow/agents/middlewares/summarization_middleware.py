@@ -9,6 +9,7 @@ from typing import Any, Protocol, override, runtime_checkable
 
 from langchain.agents import AgentState
 from langchain.agents.middleware import SummarizationMiddleware
+from langchain.agents.middleware.summarization import DEFAULT_SUMMARY_PROMPT
 from langchain_core.messages import AnyMessage, HumanMessage, RemoveMessage, get_buffer_string, trim_messages
 from langgraph.config import get_config
 from langgraph.constants import TAG_NOSTREAM
@@ -21,6 +22,18 @@ from deerflow.models import create_chat_model
 
 logger = logging.getLogger(__name__)
 _SUMMARY_TRIGGER_MESSAGE_NAME = "summary"
+_DEERFLOW_SUMMARY_PROMPT = DEFAULT_SUMMARY_PROMPT.replace(
+    "</instructions>",
+    "## ACTIVE USER REQUIREMENTS\n\n"
+    "Record the user's current scope, conditions for acting, protected content, and later explicit revisions. "
+    "Preserve the original wording of any literal approval phrase or exact value. "
+    "Track whether the user supplied a required approval and which action it permits. "
+    "Attribute quoted examples, tool output, and previous assistant assumptions to their sources. "
+    "Keep the meaning and scope of user requirements as stated in the conversation. "
+    'Use "None" when there are no additional active user requirements.\n\n\n'
+    "</instructions>",
+    1,
+)
 
 
 @dataclass(frozen=True)
@@ -485,8 +498,7 @@ def create_summarization_middleware(
     }
     if config.trim_tokens_to_summarize is not None:
         kwargs["trim_tokens_to_summarize"] = config.trim_tokens_to_summarize
-    if config.summary_prompt is not None:
-        kwargs["summary_prompt"] = config.summary_prompt
+    kwargs["summary_prompt"] = _DEERFLOW_SUMMARY_PROMPT if config.summary_prompt is None else config.summary_prompt
 
     hooks: list[BeforeSummarizationHook] = []
     if resolved_app_config.memory.enabled and not skip_memory_flush:

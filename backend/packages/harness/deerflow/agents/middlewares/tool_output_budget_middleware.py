@@ -9,7 +9,6 @@ model context is never blown by a single large tool return.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -22,7 +21,7 @@ from typing import TYPE_CHECKING, Any, override
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
 from langchain.agents.middleware.types import ModelCallResult, ModelRequest, ModelResponse
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
@@ -154,7 +153,6 @@ def _externalize(
     tool_call_id: str,
     outputs_path: str,
     storage_subdir: str,
-    content_addressed: bool = False,
 ) -> str | None:
     """Write *content* to disk and return the virtual path, or ``None`` on failure."""
     if os.path.isabs(storage_subdir) or ".." in storage_subdir:
@@ -166,18 +164,14 @@ def _externalize(
         return None
 
     filename = _build_externalized_filename(tool_name=tool_name, tool_call_id=tool_call_id)
-    if content_addressed:
-        digest = hashlib.sha256((tool_call_id + content).encode('utf-8')).hexdigest()
-        filename = f"{_sanitize_tool_name(tool_name)}-{digest}.json"
     filepath = os.path.join(storage_dir, filename)
 
     if not os.path.abspath(filepath).startswith(os.path.abspath(storage_dir)):
         return None
 
     try:
-        if not content_addressed or not os.path.isfile(filepath):
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(_storage_text(content))
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(_storage_text(content))
     except OSError:
         return None
 
@@ -607,58 +601,6 @@ def _patch_result(
     return dc_replace(result, update={**update, "messages": new_messages})
 
 
-def _patch_model_inputs(messages, config, state):
-    data = state.get('thread_data') if isinstance(state, dict) else None
-    outputs_path = data.get('outputs_path') if isinstance(data, dict) else None
-    if not outputs_path or config.externalize_min_chars <= 0:
-        return messages
-    if any(isinstance(message.content, list) and any(
-        isinstance(block, dict) and block.get('type') in {'thinking', 'redacted_thinking'}
-        for block in message.content) for message in messages):
-        return messages
-    last_calls = max((index for index, message in enumerate(messages)
-                      if isinstance(message, AIMessage) and message.tool_calls), default=-1)
-    completed = {message.tool_call_id for message in messages if isinstance(message, ToolMessage)}
-    updated = list(messages)
-    for index, message in enumerate(messages[:last_calls]):
-        if not isinstance(message, AIMessage) or not message.tool_calls:
-            continue
-        calls = []
-        changed = False
-        for call in message.tool_calls:
-            arguments = call.get('args', {})
-            payload = json.dumps(arguments, ensure_ascii=False, sort_keys=True)
-            threshold = config.tool_overrides.get(call['name'], config.externalize_min_chars)
-            if call.get('id') not in completed or threshold <= 0 or len(payload) <= threshold:
-                calls.append(call)
-                continue
-            reference = _externalize(payload, tool_name=call['name'] + '-input', tool_call_id=call['id'],
-                                     outputs_path=outputs_path, storage_subdir=config.storage_subdir,
-                                     content_addressed=True)
-            if reference is None:
-                calls.append(call)
-                continue
-            workspace_id = data.get('office_workspace_id')
-            if workspace_id:
-                reference = f'/mnt/office-workspaces/{workspace_id}/outputs' + reference[len(_VIRTUAL_OUTPUTS_BASE):]
-            compact = {key: value if len(json.dumps(value, ensure_ascii=False)) <= config.preview_head_chars
-                       else f'[Archived completed tool input; read_file {reference} for full arguments]'
-                       for key, value in arguments.items()}
-            if len(json.dumps(compact, ensure_ascii=False)) >= len(payload):
-                calls.append(call)
-                continue
-            calls.append({**call, 'args': compact})
-            changed = True
-        if changed:
-            additional = {key: value for key, value in message.additional_kwargs.items() if key != 'tool_calls'}
-            by_id = {call['id']: call for call in calls}
-            content = [{**block, 'input': by_id[block['id']]['args']}
-                       if isinstance(block, dict) and block.get('type') == 'tool_use' and block.get('id') in by_id else block
-                       for block in message.content] if isinstance(message.content, list) else message.content
-            updated[index] = message.model_copy(update={'tool_calls': calls, 'additional_kwargs': additional, 'content': content})
-    return updated
-
-
 def _patch_model_messages(messages: list[Any], config: ToolOutputConfig) -> list[Any] | None:
     """Apply budget to historical ToolMessages in a model request. Returns ``None`` if unchanged.
 
@@ -755,9 +697,8 @@ class ToolOutputBudgetMiddleware(AgentMiddleware[AgentState]):
             messages = getattr(request, "messages", None)
             if isinstance(messages, list):
                 patched = _patch_model_messages(messages, self._config)
-                inputs = _patch_model_inputs(patched or messages, self._config, request.state)
-                if patched is not None or inputs != messages:
-                    request = request.override(messages=inputs)
+                if patched is not None:
+                    request = request.override(messages=patched)
         return handler(request)
 
     @override
@@ -770,7 +711,6 @@ class ToolOutputBudgetMiddleware(AgentMiddleware[AgentState]):
             messages = getattr(request, "messages", None)
             if isinstance(messages, list):
                 patched = _patch_model_messages(messages, self._config)
-                inputs = await asyncio.to_thread(_patch_model_inputs, patched or messages, self._config, request.state)
-                if patched is not None or inputs != messages:
-                    request = request.override(messages=inputs)
+                if patched is not None:
+                    request = request.override(messages=patched)
         return await handler(request)

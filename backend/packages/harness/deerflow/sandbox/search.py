@@ -100,13 +100,30 @@ def should_ignore_path(path: str) -> bool:
     return any(should_ignore_name(segment) for segment in path.replace("\\", "/").split("/") if segment)
 
 
+def _match_segments(pattern_parts: tuple[str, ...], path_parts: tuple[str, ...]) -> bool:
+    reachable = {0}
+    for part in pattern_parts:
+        if part == "**":
+            reachable = set(range(min(reachable), len(path_parts) + 1))
+        else:
+            reachable = {index + 1 for index in reachable if index < len(path_parts) and fnmatch.fnmatchcase(path_parts[index], part)}
+        if not reachable:
+            return False
+    return len(path_parts) in reachable
+
+
 def path_matches(pattern: str, rel_path: str) -> bool:
-    path = PurePosixPath(rel_path)
-    if path.match(pattern):
-        return True
-    if pattern.startswith("**/"):
-        return path.match(pattern[3:])
-    return False
+    """Match ``rel_path`` (relative to the search root) against a glob pattern.
+
+    A pattern without ``/`` matches the basename at any depth (``*.py``). Any
+    other pattern is anchored at the search root, and ``**`` matches zero or
+    more directories (``src/**/*.py`` includes ``src/top.py``).
+    ``PurePosixPath.match`` is not used for these: it matches from the right
+    and treats ``**`` as a single-segment ``*``.
+    """
+    if "/" not in pattern:
+        return PurePosixPath(rel_path).match(pattern)
+    return _match_segments(PurePosixPath(pattern).parts, PurePosixPath(rel_path).parts)
 
 
 def truncate_line(line: str, max_chars: int = DEFAULT_LINE_SUMMARY_LENGTH) -> str:
@@ -184,7 +201,8 @@ def find_grep_matches(
 
     if not root.exists():
         raise FileNotFoundError(root)
-    if not root.is_dir():
+    root_is_file = root.is_file()
+    if not root_is_file and not root.is_dir():
         raise NotADirectoryError(root)
 
     flags = 0 if case_sensitive else re.IGNORECASE
@@ -194,61 +212,63 @@ def find_grep_matches(
     # Skip lines longer than this to prevent ReDoS on minified / no-newline files.
     _max_line_chars = line_summary_length * 10
 
-    for current_root, dirs, files in os.walk(root):
-        dirs[:] = sorted(name for name in dirs if not should_ignore_name(name))
-        rel_dir = Path(current_root).relative_to(root)
+    def candidate_files():
+        if root_is_file:
+            yield root, root.name
+            return
+        for current_root, dirs, files in os.walk(root):
+            dirs[:] = sorted(name for name in dirs if not should_ignore_name(name))
+            rel_dir = Path(current_root).relative_to(root)
+            for name in sorted(files):
+                if not should_ignore_name(name):
+                    yield Path(current_root) / name, (rel_dir / name).as_posix()
 
-        for name in sorted(files):
-            if should_ignore_name(name):
+    for candidate_path, rel_path in candidate_files():
+        if path_filter is not None and not path_filter(candidate_path):
+            continue
+
+        if glob_pattern is not None and not path_matches(glob_pattern, rel_path):
+            continue
+
+        try:
+            if candidate_path.is_symlink():
                 continue
-
-            candidate_path = Path(current_root) / name
-            if path_filter is not None and not path_filter(candidate_path):
+            file_path = candidate_path.resolve()
+            if not file_path.is_relative_to(root):
                 continue
-            rel_path = (rel_dir / name).as_posix()
-
-            if glob_pattern is not None and not path_matches(glob_pattern, rel_path):
-                continue
-
-            try:
-                if candidate_path.is_symlink():
-                    continue
-                file_path = candidate_path.resolve()
-                if not file_path.is_relative_to(root):
-                    continue
-                if file_path.stat().st_size > max_file_size:
-                    result.skipped_files += 1
-                    continue
-                if is_binary_file(file_path):
-                    continue
-                with file_path.open(encoding="utf-8", errors="replace") as handle:
-                    for line_number, line in enumerate(handle, start=1):
-                        if not literal and len(line) > _max_line_chars:
-                            result.skipped_long_lines += 1
-                            continue
-                        if literal:
-                            position = (line if case_sensitive else line.lower()).find(needle)
-                        else:
-                            match = regex.search(line)
-                            position = match.start() if match else -1
-                        if position >= 0:
-                            matched_count += 1
-                            if matched_count <= offset:
-                                continue
-                            if len(result.matches) == max_results:
-                                result.truncated = True
-                                return result
-                            start = max(0, position - line_summary_length // 3)
-                            summary = ('...' if start else '') + truncate_line(line[start:], line_summary_length)
-                            result.matches.append(
-                                GrepMatch(
-                                    path=str(file_path),
-                                    line_number=line_number,
-                                    line=summary,
-                                )
-                            )
-            except OSError:
+            if file_path.stat().st_size > max_file_size:
                 result.skipped_files += 1
                 continue
+            if is_binary_file(file_path):
+                continue
+            with file_path.open(encoding="utf-8", errors="replace") as handle:
+                for line_number, line in enumerate(handle, start=1):
+                    if not literal and len(line) > _max_line_chars:
+                        result.skipped_long_lines += 1
+                        continue
+                    if literal:
+                        position = (line if case_sensitive else line.lower()).find(needle)
+                    else:
+                        match = regex.search(line)
+                        position = match.start() if match else -1
+                    if position >= 0:
+                        matched_count += 1
+                        if matched_count <= offset:
+                            continue
+                        if len(result.matches) == max_results:
+                            result.truncated = True
+                            return result
+                        start = max(0, position - line_summary_length // 3)
+                        summary = ('...' if start else '') + truncate_line(line[start:], line_summary_length)
+                        result.matches.append(
+                            GrepMatch(
+                                path=str(file_path),
+                                line_number=line_number,
+                                line=summary,
+                            )
+                        )
+        except OSError:
+            result.skipped_files += 1
+            continue
 
     return result

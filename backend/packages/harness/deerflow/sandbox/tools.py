@@ -1810,7 +1810,7 @@ def grep_tool(
     offset: Annotated[int, Field(ge=0)] = 0,
     target: str | None = None,
 ) -> str:
-    """Search for matching lines inside text files under a root directory.
+    """Search for matching lines in a text file or under a root directory.
 
     Returns paths, line numbers and matching excerpts, plus has_more and next_offset. Long lines are shortened; read_file supplies the original text. To continue,
     keep the same query and pass next_offset as offset. Identical calls start at the
@@ -1822,7 +1822,7 @@ def grep_tool(
     Args:
         description: Explain why you are searching file contents in short words. ALWAYS PROVIDE THIS PARAMETER FIRST.
         pattern: The string or regex pattern to search for.
-        path: The **absolute** root directory to search under.
+        path: The **absolute** text file or root directory to search.
         glob: Optional glob filter for candidate files, for example `**/*.py`.
         literal: Whether to treat `pattern` as a plain string. Default is False.
         case_sensitive: Whether matching is case-sensitive. Default is False.

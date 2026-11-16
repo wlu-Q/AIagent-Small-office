@@ -27,7 +27,7 @@ def retrieval_scope(context):
 def project_evidence(messages, scope):
     projected = list(messages)
     representatives = {}
-    for index in range(len(messages) - 1, -1, -1):
+    for index in range(len(messages)):
         message = messages[index]
         if not isinstance(message, ToolMessage) or message.status != "success" or message.name not in READERS:
             continue
