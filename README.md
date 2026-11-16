@@ -269,4 +269,4 @@ Small Office's own code and character artwork use the [MIT License](LICENSE). Th
 
 The office map and Phaser visualization are adapted from [SkyOffice](https://github.com/kevinshen56714/SkyOffice).
 
-Small Office uses [DeerFlow](https://github.com/bytedance/deer-flow) as its agent runtime foundation and builds on it with extensive secondary development. This work includes the local desktop application and pixel office, employee management and capability-based delegation, Git worktree collaboration and writeback, execution approvals, the office knowledge library, bilingual interfaces, and Windows/macOS integration. DeerFlow's [MIT license](backend/DEERFLOW_LICENSE) and upstream attribution are retained. Thank you to both projects.
+Small Office is built on [DeerFlow](https://github.com/bytedance/deer-flow), with extensive further development and modifications. DeerFlow's [MIT license](backend/DEERFLOW_LICENSE) and upstream attribution are retained. Thank you to both projects.

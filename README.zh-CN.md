@@ -271,4 +271,4 @@ Mac 环境准备会下载自带的 Node.js、Git 和 PowerShell。两种平台�
 
 办公室地图与 Phaser 可视化基于 [SkyOffice](https://github.com/kevinshen56714/SkyOffice) 修改。
 
-小小办公室以 [DeerFlow](https://github.com/bytedance/deer-flow) 作为 Agent 运行底座，在其之上进行了大量二次开发，包括本地桌面应用与像素办公室、员工管理与能力驱动的任务委派、Git worktree 并行协作与成果写回、执行审批、办公室资料库、中英文界面，以及 Windows/macOS 平台适配。项目保留 DeerFlow 的 [MIT 许可](backend/DEERFLOW_LICENSE)及上游署名。感谢两个开源项目。
+小小办公室以 [DeerFlow](https://github.com/bytedance/deer-flow) 为底座，在其基础上进行了大量再开发与改造。项目保留 DeerFlow 的 [MIT 许可](backend/DEERFLOW_LICENSE)及上游署名。感谢两个开源项目。
