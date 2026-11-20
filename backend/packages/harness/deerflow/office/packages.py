@@ -22,8 +22,8 @@ from deerflow.config.app_config import get_app_config
 from deerflow.office.authority import (
     normalize_authority,
 )
-from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE, employee_identity
-from deerflow.office.presentation import FILE_DELIVERY_GUIDANCE
+from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE
+from deerflow.office.presentation import employee_briefing
 from deerflow.subagents.config import SubagentConfig
 
 _RUNTIME_PROJECTION_STATES = {'idle', 'working', 'disabled'}
@@ -197,7 +197,7 @@ def resolve_employee_subagent_package(
         config=SubagentConfig(
             name=normalized_employee_id,
             description=description,
-            system_prompt=employee_identity(description) + "\n\n" + FILE_DELIVERY_GUIDANCE + "\n\n" + load_agent_soul(
+            system_prompt=employee_briefing(description) + "\n\n" + load_agent_soul(
                 normalized_employee_id,
                 user_id=normalized_user_id,
             ) + "\n\n" + RESPONSE_LANGUAGE_GUIDANCE,

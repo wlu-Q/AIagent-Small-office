@@ -220,9 +220,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception:
                 logger.exception("Failed to initialize scheduled task service")
 
+            from deerflow.mcp.office_registry import registry as mcp_registry
+            await mcp_registry.start()
             try:
                 yield
             finally:
+                await mcp_registry.stop()
                 try:
                     await auth.close_oidc_service()
                 except Exception:

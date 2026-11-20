@@ -1,0 +1,16 @@
+{
+  "zh-CN": {
+    "folder": "工作记录", "desktop": "返回桌面", "back": "返回文件夹", "journal": "工作日志", "today": "今日任务",
+    "name": "名称", "empty": "还没有已结束的工作", "loading": "正在读取…", "more": "更早的日志", "retry": "重试",
+    "error": "工作记录读取失败", "missing": "未记录", "none": "无", "recorded": "结果记录于", "time": "执行时间", "steps": "执行过程",
+    "result": "工作结果", "issue": "异常记录", "untitled": "未记录任务内容", "private": "私聊", "group": "群聊", "delegation": "PM 委派",
+    "failed": "执行失败", "timeout": "执行超时", "interrupted": "已取消", "toolError": "操作失败"
+  },
+  "en": {
+    "folder": "Work history", "desktop": "Back to desktop", "back": "Back to folder", "journal": "Work log", "today": "Today's tasks",
+    "name": "Name", "empty": "No finished work yet", "loading": "Loading…", "more": "Older logs", "retry": "Retry",
+    "error": "Could not read work history", "missing": "Not recorded", "none": "None", "recorded": "Result recorded at", "time": "Execution time", "steps": "Execution steps",
+    "result": "Result", "issue": "Exceptions", "untitled": "Task description not recorded", "private": "Direct chat", "group": "Group chat", "delegation": "PM assignment",
+    "failed": "Execution failed", "timeout": "Timed out", "interrupted": "Cancelled", "toolError": "Operation failed"
+  }
+}

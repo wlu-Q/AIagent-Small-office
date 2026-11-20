@@ -1681,7 +1681,7 @@ async def test_mcp_tools_routed_to_source_server_with_prefix_overlap():
 
     routed: list[tuple[str, str]] = []
 
-    def fake_wrap(tool, server_name, connection, interceptors, tool_call_timeout=None):
+    def fake_wrap(tool, server_name, connection, interceptors, tool_call_timeout=None, pool_name=None):
         routed.append((tool.name, server_name))
         return tool
 

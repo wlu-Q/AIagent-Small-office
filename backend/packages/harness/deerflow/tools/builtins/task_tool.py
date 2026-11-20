@@ -859,6 +859,8 @@ async def task_tool(
         executor_kwargs["office_context"] = {key: parent_context[key] for key in (
             "office_project_id", "office_project_path", "office_work", "office_work_context") if key in parent_context}
         executor_kwargs["office_context"]["office_native_task_id"] = task_id
+        if receipt_identity is not None:
+            executor_kwargs["office_context"]["office_mcp_scope"] = receipt_identity.key
         executor_kwargs["office_context"]["office_employee_id"] = employee_id
         if workspace_ref:
             executor_kwargs["office_context"]["office_execution_workspace"] = workspace_ref

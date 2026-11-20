@@ -32,7 +32,7 @@ export function formatDate(value: string) {
   return new Intl.DateTimeFormat(i18n.language, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
 }
 
-export const providerLabel = (id: string | null, name: string) => !id ? t('ui.historical_configuration') : id === 'doubao' ? t('providers.doubao') : name
+export const providerLabel = (id: string | null, name: string) => !id ? t('ui.historical_configuration') : (id === 'doubao' || id === 'qwen') ? t(`providers.${id}`) : name
 export const thinkingLabel = (level?: string | null) => level ? t(`thinking.${level}`) : t('ui.model_default')
 
 export function localizedTemplate<T extends { templateId: string; role: string; category: string; tags: string[]; specialties: string[]; prompt?: string }>(template: T): T {

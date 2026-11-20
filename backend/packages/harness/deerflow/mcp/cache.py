@@ -153,6 +153,10 @@ def get_cached_mcp_tools() -> list[BaseTool]:
     """
     global _cache_initialized
 
+    from deerflow.mcp.office_registry import registry
+    if registry.active:
+        return registry.loaded_tools()
+
     # Check if cache is stale due to config file changes
     if _is_cache_stale():
         logger.info("MCP cache is stale, resetting for re-initialization...")

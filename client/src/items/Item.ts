@@ -21,6 +21,10 @@ export default class Item extends Phaser.Physics.Arcade.Sprite {
     this.once('destroy', () => i18n.off('languageChanged', this.refreshLanguage))
   }
 
+  protected get dialogOffsetY() {
+    return this.height * 0.5
+  }
+
   // add texts into dialog box container
   setDialogBox(key: string) {
     this.dialogKey = key
@@ -35,7 +39,7 @@ export default class Item extends Phaser.Physics.Arcade.Sprite {
     const dialogBoxWidth = innerText.width + 4
     const dialogBoxHeight = innerText.height + 2
     const dialogBoxX = this.x - dialogBoxWidth * 0.5
-    const dialogBoxY = this.y + this.height * 0.5
+    const dialogBoxY = this.y + this.dialogOffsetY
 
     this.dialogBox.add(
       this.scene.add

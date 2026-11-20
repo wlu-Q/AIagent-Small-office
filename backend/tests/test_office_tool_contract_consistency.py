@@ -27,6 +27,23 @@ def app(monkeypatch):
     return AppConfig.model_validate(payload)
 
 
+def test_mcp_setup_uses_existing_employee_permissions(app):
+    from deerflow.office.authority import DELEGATING_AUTHORITY
+    from deerflow.office.tool_contract import required_tool_names
+
+    catalog = build_tool_catalog(app_config=app)
+    assert 'configure_mcp_service' not in catalog
+    for authority, extra, expected in [
+        (DEFAULT_AUTHORITY, (), set()),
+        (DEFAULT_AUTHORITY, ('apply_patch',), {'apply_patch'}),
+        (DEFAULT_AUTHORITY, ('powershell_terminal',), {'powershell_run'}),
+        (DELEGATING_AUTHORITY, (), {'task'}),
+    ]:
+        manifest = EmployeeToolManifest(1, tuple(required_tool_names(authority)) + extra)
+        contract = resolve_employee_tools(manifest, catalog=catalog, authority=authority)
+        assert set(contract.runtime_names) & {'apply_patch', 'powershell_run', 'task', 'configure_mcp_service'} == expected
+
+
 @pytest.mark.parametrize('vision,selected', [(True, True), (False, True), (True, False)])
 def test_actual_run_model_controls_vision(tmp_path, app, vision, selected):
     from app.gateway.model_bindings import resolve_run_app_config

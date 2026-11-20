@@ -343,7 +343,10 @@ def main():
     if not reuse and any(root.iterdir()):
         raise ValueError('Desktop integration requires an empty data directory')
     config_path = root / 'config.yaml'
-    os.environ.update(DEER_FLOW_HOME=str(root), DEER_FLOW_CONFIG_PATH=str(config_path),
+    extensions = root / 'extensions_config.json'
+    if not reuse:
+        extensions.write_text('{}', encoding='utf-8')
+    os.environ.update(DEER_FLOW_EXTENSIONS_CONFIG_PATH=str(extensions), DEER_FLOW_HOME=str(root), DEER_FLOW_CONFIG_PATH=str(config_path),
                       DEER_FLOW_AUTH_DISABLED='true', SMALL_OFFICE_USER_ID='default')
     project = root / 'project'
     if not reuse:

@@ -25,6 +25,7 @@ PROVIDERS = (
     ('glm', 'GLM', 'https://open.bigmodel.cn/api/paas/v4', 'deerflow.models.patched_deepseek:PatchedChatDeepSeek'),
     ('doubao', '豆包', 'https://ark.cn-beijing.volces.com/api/v3', 'deerflow.models.patched_deepseek:PatchedChatDeepSeek'),
     ('minimax', 'MiniMax', 'https://api.minimax.cn/v1', 'deerflow.models.patched_minimax:PatchedChatMiniMax'),
+    ('qwen', 'Qwen', 'https://dashscope.aliyuncs.com/compatible-mode/v1', 'deerflow.models.reasoning_chat_openai:ChatQwen'),
 )
 PROVIDER_MAP = {item[0]: item for item in PROVIDERS}
 
@@ -33,12 +34,14 @@ THINKING_LEVELS = {
     'openai': ('none', 'low', 'medium', 'high', 'xhigh', 'max'),
     'deepseek': ('low', 'high', 'max'),
     'mimo': ('enabled', 'disabled'),
+    'qwen': ('default', 'enabled', 'disabled'),
     'kimi': ('low', 'high', 'max'),
     'glm': ('low', 'high', 'max'),
     'doubao': ('minimal', 'low', 'medium', 'high'),
     'minimax': ('low', 'medium', 'high', 'xhigh', 'max'),
 }
-THINKING_LABELS = {'none': '关闭思考', 'minimal': '最低', 'low': '低', 'medium': '中',
+DEFAULT_THINKING_LEVELS = {'mimo': 'enabled', 'qwen': 'default'}
+THINKING_LABELS = {'default': '模型默认', 'none': '关闭思考', 'minimal': '最低', 'low': '低', 'medium': '中',
                    'high': '高', 'xhigh': '极高', 'max': '最高', 'enabled': '开启思考', 'disabled': '关闭思考'}
 
 
@@ -46,25 +49,33 @@ def apply_thinking_settings(model: dict, provider: str, level: str) -> None:
     if not isinstance(level, str) or level not in THINKING_LEVELS[provider]:
         raise OfficeInputError('请选择此模型商支持的思考配置', code='errors.select_a_reasoning_setting_supported_by_this_provider')
     model['supports_thinking'] = True
-    model['supports_reasoning_effort'] = provider != 'mimo'
+    model['supports_reasoning_effort'] = provider not in {'mimo', 'qwen'}
     model['default_thinking_enabled'] = level not in {'none', 'disabled'}
     model.pop('thinking', None)
-    # Replace only thinking controls; preserve other provider-specific settings.
+    # Leave unrelated provider options intact when switching modes.
+    controls = {'thinking', 'enable_thinking'} if provider == 'qwen' else {'thinking'}
     for key in ('extra_body', 'when_thinking_enabled', 'when_thinking_disabled'):
         settings = dict(model.get(key) or {})
-        settings.pop('thinking', None)
         settings.pop('reasoning_effort', None)
+        for field in controls:
+            settings.pop(field, None)
         if isinstance(settings.get('extra_body'), dict):
-            settings['extra_body'] = {k: v for k, v in settings['extra_body'].items() if k != 'thinking'}
+            body = {k: v for k, v in settings.pop('extra_body').items() if k not in controls}
+            if body:
+                settings['extra_body'] = body
         if settings:
             model[key] = settings
         else:
             model.pop(key, None)
-    if provider == 'mimo':
+    if provider in {'mimo', 'qwen'}:
         model.pop('reasoning_effort', None)
+        if level == 'default':
+            model.pop('default_thinking_enabled', None)
+            return
         for key, mode in [('when_thinking_enabled', 'enabled'), ('when_thinking_disabled', 'disabled')]:
             settings = model.setdefault(key, {})
-            settings['extra_body'] = {**settings.get('extra_body', {}), 'thinking': {'type': mode}}
+            control = {'enable_thinking': mode == 'enabled'} if provider == 'qwen' else {'thinking': {'type': mode}}
+            settings['extra_body'] = {**settings.get('extra_body', {}), **control}
     else:
         model['reasoning_effort'] = level
         if provider in {'deepseek', 'doubao'}:
@@ -74,7 +85,7 @@ def apply_thinking_settings(model: dict, provider: str, level: str) -> None:
             model.setdefault('when_thinking_disabled', {})['reasoning_effort'] = 'none'
 
 
-def thinking_summary(model: dict) -> dict:
+def thinking_summary(model: dict, provider: str | None) -> dict:
     level = model.get('reasoning_effort')
     if not level:
         enabled = model.get('default_thinking_enabled')
@@ -84,6 +95,8 @@ def thinking_summary(model: dict) -> dict:
             level = 'enabled'
         elif (model.get('when_thinking_disabled') or {}).get('extra_body', {}).get('thinking', {}).get('type') == 'disabled':
             level = 'disabled'
+    if level is None and provider == 'qwen':
+        level = 'default'
     return {'thinkingLevel': level, 'thinkingLabel': THINKING_LABELS.get(level, '模型默认')}
 
 
@@ -94,7 +107,7 @@ class ModelProbeError(OfficeInputError):
 def public_providers() -> list[dict]:
     return [{'id': key, 'name': label, 'baseUrl': url,
              'thinkingOptions': [{'value': value, 'label': THINKING_LABELS[value]} for value in THINKING_LEVELS[key]],
-             'defaultThinkingLevel': 'enabled' if key == 'mimo' else 'high'} for key, label, url, _ in PROVIDERS]
+             'defaultThinkingLevel': DEFAULT_THINKING_LEVELS.get(key, 'high')} for key, label, url, _ in PROVIDERS]
 
 
 def model_payload(payload: dict, profile_id: str) -> dict:
@@ -108,7 +121,7 @@ def model_payload(payload: dict, profile_id: str) -> dict:
     result = {'name': profile_id, 'use': provider[3], **_connection_fields(payload)}
     if provider[0] == 'minimax':
         result['extra_body'] = {'reasoning_split': True}
-    apply_thinking_settings(result, provider[0], payload.get('thinkingLevel', 'enabled' if provider[0] == 'mimo' else 'high'))
+    apply_thinking_settings(result, provider[0], payload.get('thinkingLevel', DEFAULT_THINKING_LEVELS.get(provider_id, 'high')))
     return result
 
 
@@ -194,7 +207,7 @@ class OfficeModelService:
                 'providerName': PROVIDER_MAP[provider][1] if provider in PROVIDER_MAP else '历史配置',
                 'modelName': item.get('model'), 'createdAt': meta.get('created_at'),
                 'supportsVision': bool(item.get('supports_vision')), 'isDefault': profile_id == default_id,
-                **thinking_summary(item)})
+                **thinking_summary(item, provider)})
         return {'models': result, 'providers': public_providers()}
 
     def _owned_model(self, profile_id: str) -> tuple[dict, dict]:

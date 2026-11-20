@@ -80,6 +80,7 @@ class ToolEntry:
     source: str = 'builtin'
     unavailable_reason: str = ''
     members: tuple[str, ...] = ()
+    service_grant: str = ""
 
     @property
     def purpose(self) -> str:
@@ -114,7 +115,7 @@ _TOOL_PURPOSES = {
 }
 
 
-def build_tool_catalog(app_config=None, *, model_name=None) -> dict[str, ToolEntry]:
+def build_tool_catalog(app_config=None, *, model_name=None, include_mcp=True) -> dict[str, ToolEntry]:
     from deerflow.config import get_app_config
     from deerflow.reflection import resolve_variable
     from langchain.tools import BaseTool
@@ -131,11 +132,11 @@ def build_tool_catalog(app_config=None, *, model_name=None) -> dict[str, ToolEnt
     config = app_config or get_app_config()
     catalog = {}
 
-    def add(tool, *, identity=None, group='', permissions=(), source='builtin', reason=''):
+    def add(tool, *, identity=None, group='', permissions=(), source='builtin', reason='', service_grant=''):
         key = identity or tool.name
         if key in catalog or any(e.name == tool.name for e in catalog.values()):
             raise ValueError(f'Ambiguous tool registration: {key}')
-        catalog[key] = ToolEntry(key, tool.name, tool.description, group, tuple(permissions), source, reason)
+        catalog[key] = ToolEntry(key, tool.name, tool.description, group, tuple(permissions), source, reason, service_grant=service_grant)
 
     selected, _ = _select_runtime_tool_configs(config, None)
     available = {t.name for t in selected}
@@ -165,11 +166,21 @@ def build_tool_catalog(app_config=None, *, model_name=None) -> dict[str, ToolEnt
     # Discovery helper is generated per authorized deferred catalog, never a provider capability.
     catalog['tool_search'] = ToolEntry('tool_search', 'tool_search', 'Discover authorized external tools for this employee.')
     from deerflow.mcp.cache import get_cached_mcp_tools
-    for tool in get_cached_mcp_tools() or []:
+    from deerflow.mcp.office_registry import registry
+    services = registry.entries() if include_mcp else {}
+    external = []
+    if include_mcp:
+        external = ([tool for service in services.values() for tool in service.tools]
+                    if registry.active else get_cached_mcp_tools() or [])
+    for tool in external:
         metadata = tool.metadata or {}
         identity = metadata.get('office_tool_id')
         if identity:
-            add(tool, identity=identity, source='mcp')
+            add(tool, identity=identity, source='mcp', service_grant=metadata.get('office_mcp_grant', ''))
+    for name, service in services.items():
+        members = tuple(t.metadata['office_tool_id'] for t in service.tools
+                        if t.metadata['office_tool_id'] in catalog)
+        catalog[service.grant] = ToolEntry(service.grant, name, name, source='mcp-service', members=members)
     from deerflow.tools.skill_manage_tool import skill_manage_tool
     from deerflow.tools.builtins.invoke_acp_agent_tool import build_invoke_acp_agent_tool
     evolution = getattr(config, 'skill_evolution', None)
@@ -183,7 +194,7 @@ def validate_required_tool_names(names: list[str] | None, *, app_config=None) ->
     if not names:
         return
     catalog = build_tool_catalog(app_config)
-    runtime_names = {entry.name for entry in catalog.values() if not entry.members}
+    runtime_names = {entry.name for entry in catalog.values() if not entry.members and entry.source != 'mcp-service'}
     unknown = sorted(set(names) - runtime_names)
     if unknown:
         raise ValueError(
@@ -247,6 +258,10 @@ def resolve_employee_tools(manifest, *, catalog, authority, execution_kind='dire
         entry = catalog.get(identity)
         if entry is not None:
             validate_tool_authority(authority, tool_name=entry.name, tool_group=entry.group, permissions=entry.permissions)
+        if identity.startswith('mcp-service/'):
+            expanded.discard(identity)
+            if deferred_enabled and entry and entry.members:
+                expanded.add('tool_search')
         if entry is not None and entry.members:
             expanded.discard(identity)
             expanded.update(entry.members)
@@ -265,7 +280,9 @@ def resolve_employee_tools(manifest, *, catalog, authority, execution_kind='dire
         if not authority.can_delegate and entry.name in PM_REQUIRED:
             raise ValueError(f'Tool {entry.name} requires PM authority')
         reason = entry.unavailable_reason
-        if deferred_enabled and identity.startswith('mcp/') and 'tool_search' not in manifest.tools:
+        if entry.service_grant and entry.service_grant not in manifest.tools:
+            reason = 'select_mcp_service'
+        if deferred_enabled and identity.startswith('mcp/') and 'tool_search' not in expanded:
             reason = 'tool_search_required'
         if execution_kind == 'delegated' and entry.name in {'task', 'ask_clarification'}:
             reason = 'delegated_context_denied'

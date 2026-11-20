@@ -47,7 +47,7 @@ export default class MyPlayer extends Player {
     if (Phaser.Input.Keyboard.JustDown(keyR)) {
       switch (item?.itemType) {
         case ItemType.COMPUTER:
-          ;(item as Computer).setDialogBox('ui.ai_workstation_coming_soon')
+          if ((item as Computer).viewWorkstation()) return
           break
         case ItemType.WHITEBOARD:
           ;(item as Whiteboard).setDialogBox('ui.team_whiteboard_coming_soon')
@@ -89,10 +89,10 @@ export default class MyPlayer extends Player {
 
               this.play(`${this.playerTexture}_sit_${chairItem.itemDirection}`, true)
               playerSelector.selectedItem = undefined
-              if (chairItem.itemDirection === 'up') {
-                playerSelector.setPosition(this.x, this.y - this.height)
+              if (chairItem.computer) {
+                playerSelector.setPosition(chairItem.computer.x, chairItem.computer.y)
               } else {
-                playerSelector.setPosition(0, 0)
+                playerSelector.setPosition(this.x, this.y)
               }
             },
             loop: false,
@@ -154,6 +154,9 @@ export default class MyPlayer extends Player {
           this.play(parts.join('_'), true)
           this.playerBehavior = PlayerBehavior.IDLE
           this.chairOnSit?.clearDialogBox()
+          playerSelector.selectedItem?.clearDialogBox()
+          playerSelector.selectedItem = undefined
+          this.chairOnSit = undefined
           playerSelector.setPosition(this.x, this.y)
           playerSelector.update(this, cursors)
         }

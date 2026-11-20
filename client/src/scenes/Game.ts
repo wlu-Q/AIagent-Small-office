@@ -15,6 +15,7 @@ import MyPlayer from '../characters/MyPlayer'
 import OfficeEmployee, { type IdleSeat } from '../characters/OfficeEmployee'
 import PlayerSelector from '../characters/PlayerSelector'
 import { additionalCharacterTextures } from '../characters/additionalCharacterTextures'
+import { hasDailyCharacterAssets } from '../characters/dailyCharacterAssets'
 import { officeApi, type OfficeEmployeeSummary } from '../services/office/officeApi'
 import { PlayerBehavior } from '../types/PlayerBehavior'
 import { NavKeys, Keyboard } from '../types/KeyboardState'
@@ -32,6 +33,8 @@ import {
 } from './officeExpansion'
 import { getEmployeeWorkstation, listEmployeeWorkstations } from './employeeWorkstations'
 import { PathfindingGrid } from '../utils/pathfinding'
+import type { WorkstationSnapshot } from '../workstations/workstationModel'
+import { useWorkstationState } from '../workstations/workstationState'
 
 type Point = {
   x: number
@@ -104,6 +107,8 @@ export default class Game extends Phaser.Scene {
   private occupiedIdleSeats = new Set<string>()
   private officeEmployeeSyncTimer?: Phaser.Time.TimerEvent
   private officeEmployeeSyncInFlight = false
+  private workstationComputers = new Map<string, Computer>()
+  private workstationSyncElapsed = 0
   private handleOfficeEmployeesUpdated = (event: Event) => {
     const employees = (event as CustomEvent<OfficeEmployeeSummary[]>).detail
     if (Array.isArray(employees)) this.syncOfficeEmployees(employees)
@@ -214,6 +219,44 @@ export default class Game extends Phaser.Scene {
       const item = this.addObjectFromTiled(computers, obj, 'computers', 'computer') as Computer
       item.setDepth(item.y + item.height * 0.27)
     })
+    this.workstationComputers.clear()
+    const mapComputers = computers.getChildren() as Computer[]
+    for (const workstation of listEmployeeWorkstations()) {
+      const chair = (chairs.getChildren() as Chair[]).find(item => item.x === workstation.x && item.y === workstation.y && item.itemDirection === workstation.direction)
+      const computerY = workstation.y + (workstation.direction === 'up' ? -32 : 64)
+      const source = mapComputers.find(item => item.x === workstation.x && item.y === computerY)
+      if (!chair || !source) throw new Error(`Missing map objects for ${workstation.id}`)
+      const computer: Computer = workstation.direction === 'up' ? source : computers.get(workstation.x, workstation.y + 32, 'computers', source.frame.name).setVisible(false)
+      computer.workstation = workstation
+      computer.openPreview = () => this.openSelectedWorkstation(computer)
+      ;(computer.body as Phaser.Physics.Arcade.StaticBody).setSize(80, 32)
+      ;(chair.body as Phaser.Physics.Arcade.StaticBody).setSize(32, 24)
+      chair.computer = computer
+      this.workstationComputers.set(workstation.id, computer)
+    }
+    let savedInput: { pointer: boolean; keyboard: boolean } | undefined
+    const releaseWorkstation = useWorkstationState.subscribe((state, previous) => {
+      if (Boolean(state.active) === Boolean(previous.active)) return
+      if (state.active) {
+        savedInput = { pointer: this.input.enabled, keyboard: this.input.keyboard.enabled }
+        this.input.keyboard.resetKeys()
+        this.input.keyboard.enabled = false
+        this.input.enabled = false
+        this.officeEmployees.forEach(employee => employee.setInteractionsSuspended(true))
+        this.myPlayer.setVelocity(0, 0)
+        ;(this.myPlayer.playerContainer.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0)
+      } else if (savedInput) {
+        this.input.keyboard.resetKeys()
+        this.input.enabled = savedInput.pointer
+        this.input.keyboard.enabled = savedInput.keyboard
+        this.officeEmployees.forEach(employee => employee.setInteractionsSuspended(false))
+        savedInput = undefined
+      }
+    })
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      useWorkstationState.getState().close()
+      releaseWorkstation()
+    })
 
     const whiteboards = this.physics.add.staticGroup({ classType: Whiteboard })
     const whiteboardLayer = this.map.getObjectLayer('Whiteboard')
@@ -308,8 +351,9 @@ export default class Game extends Phaser.Scene {
     })
   }
 
-  private textureForEmployee(employeeId: string) {
-    const hash = [...employeeId].reduce((total, character) => total + character.charCodeAt(0), 0)
+  private textureForEmployee({ id, avatar }: OfficeEmployeeSummary) {
+    if (hasDailyCharacterAssets(avatar)) return avatar
+    const hash = [...id].reduce((total, character) => total + character.charCodeAt(0), 0)
     return additionalCharacterTextures[hash % additionalCharacterTextures.length]
   }
 
@@ -344,13 +388,14 @@ export default class Game extends Phaser.Scene {
         this,
         projection,
         workstation,
-        this.textureForEmployee(projection.id),
+        this.textureForEmployee(projection),
         this.officeNavigation,
         this.idleSeats,
         this.occupiedIdleSeats,
         idleForbiddenAreas,
       )
       this.officeEmployeeGroup.add(employee)
+      employee.setInteractionsSuspended(Boolean(useWorkstationState.getState().active))
       this.officeEmployees.set(projection.id, employee)
     })
     this.officeEmployees.forEach((employee, employeeId) => {
@@ -372,9 +417,18 @@ export default class Game extends Phaser.Scene {
 
 
   private handleItemSelectorOverlap(playerSelector, selectionItem) {
+    const computer = selectionItem instanceof Computer ? selectionItem : selectionItem instanceof Chair ? selectionItem.computer : undefined
+    if (computer && !computer.canInteractFrom(this.myPlayer)) return
+    if (this.myPlayer.playerBehavior === PlayerBehavior.SITTING && selectionItem instanceof Chair) return
     const currentItem = playerSelector.selectedItem as Item
     if (currentItem) {
-      if (currentItem === selectionItem || currentItem.depth >= selectionItem.depth) {
+      if (currentItem === selectionItem) return
+      const currentComputer = currentItem instanceof Computer ? currentItem : currentItem instanceof Chair ? currentItem.computer : undefined
+      if (computer && currentComputer) {
+        const currentDistance = Phaser.Math.Distance.Between(playerSelector.x, playerSelector.y, currentItem.x, currentItem.y)
+        const nextDistance = Phaser.Math.Distance.Between(playerSelector.x, playerSelector.y, selectionItem.x, selectionItem.y)
+        if (currentComputer.canInteractFrom(this.myPlayer) && this.physics.overlap(playerSelector, currentItem) && currentDistance <= nextDistance) return
+      } else if (currentItem.depth >= selectionItem.depth) {
         return
       }
       if (this.myPlayer.playerBehavior !== PlayerBehavior.SITTING) currentItem.clearDialogBox()
@@ -632,11 +686,51 @@ export default class Game extends Phaser.Scene {
     }
   }
 
+  private workstationSnapshot(computer: Computer): WorkstationSnapshot {
+    const workstationId = computer.workstation.id
+    const employee = [...this.officeEmployees.values()].find(item => item.getProjection().workstationId === workstationId)
+    const projection = employee?.getProjection()
+    return {
+      workstationId,
+      computerFrame: Number(computer.frame.name),
+      employeeId: projection?.id,
+      displayName: projection?.displayName,
+      characterTexture: employee?.playerTexture,
+      state: projection?.state ?? 'unbound',
+      atDesk: employee?.workstation.id === workstationId && employee.isOperatingWorkstation(),
+    }
+  }
+
+  private openSelectedWorkstation(computer: Computer) {
+    const focused = document.activeElement
+    const editing = focused instanceof HTMLElement && (focused.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(focused.tagName))
+    const dialogOpen = [...document.querySelectorAll<HTMLElement>('[role="dialog"]')]
+      .some(dialog => dialog.getClientRects().length > 0 && getComputedStyle(dialog).visibility === 'visible')
+    const selected = this.playerSelector.selectedItem
+    if (!editing && !dialogOpen && !useWorkstationState.getState().active &&
+      this.input.enabled && this.input.keyboard.enabled && selected === computer &&
+      computer.canInteractFrom(this.myPlayer) && this.physics.overlap(this.playerSelector, selected)) {
+      useWorkstationState.getState().open(this.workstationSnapshot(computer))
+      return true
+    }
+    return false
+  }
+
   update(_time?: number, delta = 16) {
-    if (this.myPlayer) {
+    const workstationOpen = Boolean(useWorkstationState.getState().active)
+    if (this.myPlayer && !workstationOpen) {
       this.playerSelector.update(this.myPlayer, this.cursors)
       this.myPlayer.update(this.playerSelector, this.cursors, this.keyE, this.keyR)
     }
     this.officeEmployees.forEach((employee) => employee.updateOffice(delta))
+    if (workstationOpen) {
+      this.workstationSyncElapsed += delta
+      if (this.workstationSyncElapsed >= 150) {
+        this.workstationSyncElapsed = 0
+        const active = useWorkstationState.getState().active!
+        const computer = this.workstationComputers.get(active.workstationId)!
+        useWorkstationState.getState().sync(this.workstationSnapshot(computer))
+      }
+    }
   }
 }

@@ -61,6 +61,10 @@ class RunStore(abc.ABC):
     ) -> list[dict[str, Any]]:
         pass
 
+    async def list_assistant_run_headers(self, thread_ids, assistant_id, *, metadata_keys, user_id):
+        """Return scoped run identities, lifecycle fields and only the requested metadata."""
+        raise NotImplementedError
+
     async def find_by_thread_metadata(
         self,
         thread_id: str,

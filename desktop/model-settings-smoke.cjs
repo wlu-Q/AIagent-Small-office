@@ -13,10 +13,10 @@ let releaseDefault
 let edited
 let added
 let settings
-const labels = { none: '关闭思考', minimal: '最低', low: '低', medium: '中', high: '高', xhigh: '极高', max: '最高', enabled: '开启思考', disabled: '关闭思考' }
+const labels = { default: '模型默认', none: '关闭思考', minimal: '最低', low: '低', medium: '中', high: '高', xhigh: '极高', max: '最高', enabled: '开启思考', disabled: '关闭思考' }
 const levels = {
   openai: ['none', 'low', 'medium', 'high', 'xhigh', 'max'], deepseek: ['low', 'high', 'max'],
-  mimo: ['enabled', 'disabled'], kimi: ['low', 'high', 'max'], glm: ['low', 'high', 'max'],
+  qwen: ['default', 'enabled', 'disabled'], mimo: ['enabled', 'disabled'], kimi: ['low', 'high', 'max'], glm: ['low', 'high', 'max'],
   doubao: ['minimal', 'low', 'medium', 'high'], minimax: ['low', 'medium', 'high', 'xhigh', 'max'],
 }
 const catalogue = {
@@ -28,8 +28,9 @@ const catalogue = {
     ['glm', 'GLM', 'https://open.bigmodel.cn/api/paas/v4'],
     ['doubao', '豆包', 'https://ark.cn-beijing.volces.com/api/v3'],
     ['minimax', 'MiniMax', 'https://api.minimax.cn/v1'],
+    ['qwen', 'Qwen', 'https://dashscope.aliyuncs.com/compatible-mode/v1'],
   ].map(([id, name, baseUrl]) => ({ id, name, baseUrl,
-    thinkingOptions: levels[id].map(value => ({ value, label: labels[value] })), defaultThinkingLevel: id === 'mimo' ? 'enabled' : 'high' })),
+    thinkingOptions: levels[id].map(value => ({ value, label: labels[value] })), defaultThinkingLevel: ({ mimo: 'enabled', qwen: 'default' })[id] || 'high' })),
   models: Array.from({ length: 8 }, (_, i) => ({ id: `model-${i}`, provider: 'openai', providerName: 'OpenAI',
     modelName: i === 0 ? 'gpt-existing' : `team-model-${i}`, createdAt: i ? '2026-10-16T03:20:00Z' : null, supportsVision: false, isDefault: i === 0,
     thinkingLevel: 'high', thinkingLabel: '高' })),
@@ -199,8 +200,13 @@ exports.run = async (window, wait, setValue) => {
   await wait(window, `!document.querySelector('[data-office-add-model-dialog]')`, 'busy model can close')
   editingBusy = false
   await click('[data-office-model-add]')
-  await wait(window, `document.querySelectorAll('[data-office-provider]').length === 7`, 'seven providers')
+  await wait(window, `document.querySelectorAll('[data-office-provider]').length === 8`, 'eight providers')
   await capture('providers')
+  await click('[data-office-provider="qwen"]')
+  await wait(window, `document.querySelector('input[name="baseUrl"]')?.value === 'https://dashscope.aliyuncs.com/compatible-mode/v1'`, 'Qwen address')
+  assert.equal(await evaluate(`document.querySelector('[data-office-thinking-select] [role="button"]').textContent`), '模型默认')
+  await chooseThinking('enabled')
+  await click('[aria-label="返回选择模型商"]')
   await click('[data-office-provider="deepseek"]')
   await wait(window, `document.querySelector('input[name="baseUrl"]')?.value === 'https://api.deepseek.com'`, 'official address')
   await setValue('input[name="modelName"]', 'deepseek-chat')
@@ -236,7 +242,7 @@ exports.run = async (window, wait, setValue) => {
   await click('[data-office-model-default="new-model"]')
   await wait(window, `document.querySelector('[data-office-model-default="new-model"]').textContent === '当前默认'`, 'default changes')
   await click('[data-office-model-add]')
-  await wait(window, `document.querySelectorAll('[data-office-provider]').length === 7`, 'reopen clean chooser')
+  await wait(window, `document.querySelectorAll('[data-office-provider]').length === 8`, 'reopen clean chooser')
   await click('[data-office-provider="kimi"]')
   await wait(window, `document.querySelector('input[name="apiKey"]')?.value === ''`, 'secret cleared')
   await click('[aria-label="返回选择模型商"]')
@@ -254,5 +260,5 @@ exports.run = async (window, wait, setValue) => {
   await evaluate(`[...document.querySelectorAll('[data-office-settings-dialog] button')].find(b => b.textContent === '保存设置').click()`)
   await wait(window, `!document.querySelector('[data-office-settings-dialog]')`, 'outer saved')
   assert.deepEqual(settings, { companyName: '尚未保存的办公室名称', terminalAccessMode: 'approval', confirmFullAccess: false })
-  console.log('MODEL_SETTINGS_UI_OK: hover/focus edit, prefill, blank secret, cancel, save/error, busy guard, scrolling, seven providers, add, default, draft preservation')
+  console.log('MODEL_SETTINGS_UI_OK: hover/focus edit, prefill, blank secret, cancel, save/error, busy guard, scrolling, eight providers, add, default, draft preservation')
 }

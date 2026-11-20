@@ -167,6 +167,9 @@ function registerSmokeIpc() {
     apiKeyConfigured: true,
   }))
   ipcMain.handle('office-desktop:getUserMemory', async () => ({ facts: [] }))
+  ipcMain.handle('office-desktop:getEmployeeMemory', async () => ({ lastUpdated: '', facts: [], user: {}, history: {} }))
+  ipcMain.handle('office-desktop:listWorkLogDays', async () => ({ days: [], nextBefore: null }))
+  ipcMain.handle('office-desktop:getWorkLogDay', async (_event, _employee, date) => ({ date, tasks: [] }))
   ipcMain.handle('office-desktop:createMemoryFact', async (_event, payload) => ({
     facts: [{ id: 'user-preference-one', content: payload.content, category: payload.category }],
   }))
@@ -223,18 +226,37 @@ function registerSmokeIpc() {
   ipcMain.handle('office-desktop:listExecutionApprovals', async () => ({ items: [] }))
   ipcMain.handle('office-desktop:decideExecutionApproval', async () => { throw new Error('No pending fixture approval') })
   selectedToolNames = ['read_file', 'apply_patch', 'publish_task_result', 'report_to_pm', 'ask_clarification', 'mcp/offline/custom', 'web_fetch']
-  const fixtureToolContract = () => ({ tools: selectedToolNames, revision: 'fixture-revision', requiredTools: ['read_file', 'report_to_pm'], availableTools: selectedToolNames, unavailableTools: {},
+  const serviceRows = new Map()
+  const assignments = new Map()
+  const grants = new Map()
+  const fixtureServices = () => Array.from(serviceRows.values())
+  ipcMain.handle('office-desktop:listMcpServices', fixtureServices)
+  ipcMain.handle('office-desktop:changeMcpService', (_event, name, change) => {
+    const old = serviceRows.get(name)
+    const enabled = change.action === 'disable' ? false : change.action === 'enable' || (old?.enabled ?? true)
+    if (change.action === 'delete') serviceRows.delete(name)
+    else serviceRows.set(name, { url: '', command: '', args: [], env: {}, headers: {}, ...old,
+      ...change.connection, name, enabled, status: enabled ? 'ready' : 'disabled', count: 1, error: '',
+      revision: require('node:crypto').randomUUID() })
+    if (!old || !enabled || change.action === 'delete') grants.set(name, 'mcp-service/' + require('node:crypto').randomBytes(16).toString('hex'))
+    return fixtureServices()
+  })
+  const fixtureToolContract = id => ({ tools: [...selectedToolNames, ...(assignments.get(id) || []).filter(key =>
+    fixtureServices().some(s => s.enabled && grants.get(s.name) === key))],
+    mcpServices: fixtureServices().filter(s => s.enabled).map(s => ({name: s.name, id: grants.get(s.name)})), revision: 'fixture-revision', requiredTools: ['read_file', 'report_to_pm'], availableTools: selectedToolNames, unavailableTools: {},
     choices: [['read_file', '读取文件'], ['apply_patch', '编辑文件'], ['web_search', '网络搜索'], ['search_office_library', '办公室资料库'], ['powershell_terminal', '终端控制']].map(([id, label]) => ({ id, label, description: label,
       members: id === 'read_file' ? ['read_file', 'ls', 'glob', 'grep'] : id === 'web_search' ? ['web_search', 'web_fetch', 'image_search'] : [id],
       required: id === 'read_file', unavailableReason: '' })) })
-  ipcMain.handle('office-desktop:getOfficeEmployeeTools', async () => fixtureToolContract())
+  ipcMain.handle('office-desktop:getOfficeEmployeeTools', async (_event, id) => fixtureToolContract(id))
   ipcMain.handle('office-desktop:saveOfficeEmployeeTools', async (_event, id, payload) => {
     if (employeeState !== 'idle') throw new Error('Employee is working')
     assert.equal(payload.expectedRevision, 'fixture-revision')
-    selectedToolNames = payload.tools
-    return fixtureToolContract()
+    selectedToolNames = payload.tools.filter(key => !key.startsWith('mcp-service/'))
+    assignments.set(id, payload.tools.filter(key => key.startsWith('mcp-service/')))
+    return fixtureToolContract(id)
   })
   ipcMain.handle('office-desktop:saveOfficeEmployeePersonalInfo', async (_event, employeeId, payload) => {
+    assert.ok(!process.argv.includes('--mcp-settings'), 'MCP-only edits must not write employee data')
     assert.equal(employeeId, 'frontend-one')
     assert.deepEqual(Object.keys(payload).sort(), ['displayName', 'modelProfileId', 'prompt', 'skills'])
     if (rejectPersonalSave) throw new Error('保存失败测试')
@@ -747,8 +769,8 @@ function registerSmokeIpc() {
 function removeSmokeIpc() {
   for (const channel of [
     'listOfficeModels', 'getOfficeModel', 'updateOfficeModel', 'addOfficeModel', 'setOfficeDefaultModel',
-    'listExecutionApprovals', 'decideExecutionApproval', 'getOfficeEmployeeTools', 'saveOfficeEmployeeTools',
-    'getOfficeBootstrap', 'getOfficeSettings', 'getLanguage', 'setLanguage', 'saveOfficeSettings', 'getUserMemory', 'createMemoryFact', 'updateMemoryFact', 'deleteMemoryFact',
+    'listExecutionApprovals', 'decideExecutionApproval', 'listMcpServices', 'changeMcpService', 'getOfficeEmployeeTools', 'saveOfficeEmployeeTools',
+    'getOfficeBootstrap', 'getOfficeSettings', 'getLanguage', 'setLanguage', 'saveOfficeSettings', 'getUserMemory', 'getEmployeeMemory', 'listWorkLogDays', 'getWorkLogDay', 'createMemoryFact', 'updateMemoryFact', 'deleteMemoryFact',
     'testOfficeBootstrapModel', 'initializeOfficeBootstrap', 'getServiceStatus', 'pingService',
     'getWorkspaceSummary', 'selectAndBindWorkspace', 'listOfficeEmployees', 'getOfficeEmployee', 'deleteOfficeEmployee', 'listOfficeEmployeeTemplates', 'listModels', 'listSkills',
     'listOfficeGroupMessages', 'listOfficeConversationMessages', 'listOfficeQueue', 'editOfficeQueue', 'deleteOfficeQueue', 'listOfficeRuns',
@@ -860,6 +882,10 @@ async function run() {
     await window.webContents.executeJavaScript("document.querySelector('[aria-label=\\\"打开办公室设置\\\"]')?.click()")
     await waitForRenderer(window, "document.querySelector('[aria-labelledby=\\\"office-settings-title\\\"]') !== null", 'office settings dialog opens')
     await waitForRenderer(window, "document.querySelector('[aria-label=\\\"关闭办公室设置\\\"]') !== null", 'office settings actions render')
+    if (process.argv.includes('--mcp-settings')) {
+      await require('./mcp-settings-smoke.cjs')(window, waitForRenderer, setValue, selectLanguage)
+      return
+    }
     if (modelSmoke) {
       await modelScenario.run(window, waitForRenderer, setValue)
       return
@@ -1357,14 +1383,14 @@ async function run() {
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-edit-tool]').length === 5 && document.querySelector('[data-edit-tool=web_search]').indeterminate"), true, 'five groups preserve partially selected legacy web tools')
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-edit-tool=publish_task_result]') === null && !document.querySelector('[data-edit-employee-tools]').textContent.includes('file:write')"), true)
     await window.webContents.executeJavaScript("document.querySelector('[data-edit-tool=web_search]').click(); document.querySelector('[data-edit-tool=search_office_library]').click(); document.querySelector('[data-save-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-employee-edit-status]')?.textContent.includes('已保存')", 'tools save through shared save button')
+    await waitForRenderer(window, "document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent === '员工配置保存成功' && document.querySelector('[data-save-employee]')?.disabled === false", 'tools save through shared save button')
     for (const name of ['read_file', 'ls', 'glob', 'grep', 'web_search', 'web_fetch', 'image_search', 'report_to_pm', 'ask_clarification', 'mcp/offline/custom']) assert.ok(selectedToolNames.includes(name), `group save preserves ${name}`)
     await window.webContents.executeJavaScript("document.querySelector('[data-edit-tool=web_search]').click(); document.querySelector('[data-save-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-employee-edit-status]')?.textContent.includes('已保存')", 'group disable saves')
+    await waitForRenderer(window, "document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent === '员工配置保存成功' && document.querySelector('[data-save-employee]')?.disabled === false", 'group disable saves')
     assert.ok(['web_search', 'web_fetch', 'image_search'].every(name => !selectedToolNames.includes(name)))
     assert.ok(['report_to_pm', 'ask_clarification', 'mcp/offline/custom'].every(name => selectedToolNames.includes(name)))
     await window.webContents.executeJavaScript("document.querySelector('[data-edit-tool=web_search]').click(); document.querySelector('[data-save-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-employee-edit-status]')?.textContent.includes('已保存')", 'group reenable saves')
+    await waitForRenderer(window, "document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent === '员工配置保存成功' && document.querySelector('[data-save-employee]')?.disabled === false", 'group reenable saves')
     await window.webContents.executeJavaScript("document.querySelector('[data-close-employee-editor]').click(); document.querySelector('[data-office-employee-editor-launcher]').click()")
     await waitForRenderer(window, "document.querySelector('[data-edit-tool=web_search]')?.checked && document.querySelector('[data-edit-tool=search_office_library]')?.checked", 'tool choices survive reopen')
     assert.equal(await window.webContents.executeJavaScript("(() => { const text = document.querySelector('[data-edit-employee-details]')?.textContent || ''; return !text.includes('员工信息') && !text.includes('Capabilities') && !text.includes('Permissions') && !text.includes('委派能力') && !text.includes('前端开发') && !text.includes('接口实现') && !text.includes('workstation-02') && !text.includes('最近报告') })()"), true, 'employee dialog omits runtime and capability metadata')
@@ -1386,12 +1412,12 @@ async function run() {
     await setValue('[data-edit-employee-prompt]', '更新后的个人 Prompt')
     await window.webContents.executeJavaScript("document.querySelector('[data-edit-skill=\"find-skills\"]').click()")
     await window.webContents.executeJavaScript("document.querySelector('[data-save-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-employee-edit-status]')?.textContent.includes('已保存')", 'employee settings saved')
+    await waitForRenderer(window, "document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent === '员工配置保存成功' && document.querySelector('[data-save-employee]')?.disabled === false", 'employee settings saved')
     assert.deepEqual(savedPersonalInfo, { displayName: '新周礼', prompt: '更新后的个人 Prompt', skills: [], modelProfileId: 'model-1' })
     await window.webContents.executeJavaScript("document.querySelector('[data-close-employee-editor]').click(); document.querySelector('[data-office-employee-editor-launcher]').click()")
     await waitForRenderer(window, "document.querySelector('[data-edit-employee-prompt]')?.value === '更新后的个人 Prompt'", 'reopening retains personal settings')
     await window.webContents.executeJavaScript("document.querySelector('[data-edit-skill=\"custom-installed\"]').click(); document.querySelector('[data-save-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-employee-edit-status]')?.textContent.includes('已保存')", 'user-installed skill can be added')
+    await waitForRenderer(window, "document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent === '员工配置保存成功' && document.querySelector('[data-save-employee]')?.disabled === false", 'user-installed skill can be added')
     assert.deepEqual(savedPersonalInfo.skills, ['custom-installed'])
     availableSkillNames.push('newly-installed')
     await waitForRenderer(window, "document.querySelector('[data-edit-skill=\"newly-installed\"]') !== null", 'new install appears while editor stays open')
@@ -1401,17 +1427,24 @@ async function run() {
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-edit-employee-name]')?.value"), '未保存的名称', 'skills refresh preserves unsaved form')
     await setValue('[data-edit-employee-name]', '新周礼')
     await window.webContents.executeJavaScript("document.querySelector('[data-save-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-employee-edit-status]')?.textContent.includes('已保存')", 'saving after uninstall succeeds')
+    await waitForRenderer(window, "document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent === '员工配置保存成功' && document.querySelector('[data-save-employee]')?.disabled === false", 'saving after uninstall succeeds')
     assert.deepEqual(savedPersonalInfo.skills, [])
     await window.webContents.executeJavaScript("document.querySelector('[data-edit-employee-item=\"research-one\"]').click()")
     await waitForRenderer(window, "document.querySelector('[data-edit-employee-name]')?.value === '黎明'", 'second employee can be selected before deletion')
     await window.webContents.executeJavaScript("document.querySelector('[data-delete-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-delete-employee-confirm]') !== null", 'delete confirmation is explicit')
+    await waitForRenderer(window, "document.querySelector('[role=alertdialog] [data-delete-employee-confirm]') !== null", 'delete confirmation is a separate dialog')
+    await waitForRenderer(window, "getComputedStyle(document.querySelector('[role=alertdialog]').parentElement).opacity === '1'", 'delete dialog is fully visible')
+    await window.webContents.executeJavaScript("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")
+    const screenshotDir = path.resolve(__dirname, '..', 'output')
+    await fs.mkdir(screenshotDir, { recursive: true })
+    await fs.writeFile(path.join(screenshotDir, 'employee-delete-confirmation.png'), (await window.webContents.capturePage()).toPNG())
+    await window.webContents.executeJavaScript("document.querySelector('[data-delete-employee-cancel]').click()")
+    await waitForRenderer(window, "!document.querySelector('[role=alertdialog] [data-delete-employee-confirm]') && document.querySelector('[data-edit-employee-item=research-one]')", 'cancelling leaves employee in list')
+    await window.webContents.executeJavaScript("document.querySelector('[data-delete-employee]').click()")
+    await waitForRenderer(window, "document.querySelector('[role=alertdialog] [data-delete-employee-confirm]') !== null", 'delete confirmation reopens')
     await window.webContents.executeJavaScript("document.querySelector('[data-delete-employee-confirm]').click()")
     await waitForRenderer(window, "document.querySelector('[data-edit-employee-item=\"research-one\"]') === null && document.body.innerText.includes('员工已删除')", 'deleted employee disappears from management list')
     assert.equal(deletedEmployeeId, 'research-one')
-    const screenshotDir = path.resolve(__dirname, '..', 'output')
-    await fs.mkdir(screenshotDir, { recursive: true })
     await fs.writeFile(path.join(screenshotDir, 'stage1-employee-editor.png'), (await window.webContents.capturePage()).toPNG())
     await window.webContents.executeJavaScript("document.querySelector('[data-edit-employee-item=\"frontend-one\"]').click()")
     await waitForRenderer(window, "document.querySelector('[data-edit-employee-name]')?.value === '新周礼'", 'remaining employee stays available after deletion')
@@ -1423,7 +1456,7 @@ async function run() {
     rejectPersonalSave = true
     await setValue('[data-edit-employee-prompt]', '未保存草稿')
     await window.webContents.executeJavaScript("document.querySelector('[data-save-employee]').click()")
-    await waitForRenderer(window, "document.querySelector('[data-employee-edit-error]')?.textContent.includes('保存失败测试')", 'save failure visible')
+    await waitForRenderer(window, "document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent.includes('保存失败测试')", 'save failure visible')
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-edit-employee-prompt]').value"), '未保存草稿')
     assert.equal(employeePersonalInfo.prompt, '更新后的个人 Prompt')
     console.log('DESKTOP_EMPLOYEE_EDIT_SMOKE_OK')

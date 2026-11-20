@@ -162,6 +162,17 @@ class RunRepository(RunStore):
             result = await session.execute(stmt)
             return [self._row_to_dict(r) for r in result.scalars()]
 
+    async def list_assistant_run_headers(self, thread_ids, assistant_id, *, metadata_keys, user_id):
+        owner = resolve_user_id(user_id, method_name="RunRepository.list_assistant_run_headers")
+        columns = [RunRow.metadata_json[key].as_string().label(key) for key in metadata_keys]
+        stmt = select(RunRow.run_id, RunRow.thread_id, RunRow.created_at, RunRow.updated_at,
+                      RunRow.events_finalized, RunRow.status, *columns).where(
+            RunRow.thread_id.in_(thread_ids), RunRow.assistant_id == assistant_id, RunRow.user_id == owner,
+        )
+        async with self._sf() as session:
+            rows = (await session.execute(stmt)).mappings()
+            return [{**row, "created_at": coerce_iso(row["created_at"]), "updated_at": coerce_iso(row["updated_at"])} for row in rows]
+
     async def find_by_thread_metadata(
         self,
         thread_id,

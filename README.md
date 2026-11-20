@@ -61,6 +61,12 @@ The pixel office makes the team visible: employees have names, desks, and room t
 - **Set tools and permissions.** Configure what each employee can use, with authorization enforced separately from their work instructions.
 - **See your team in the office.** Employees have their own workstations and status. When idle, they move around, pause, and interact.
 
+### Connect MCP services
+
+Open **Office Settings → Configure MCP** to add a local service (stdio) or an HTTP service. You can also ask an employee with terminal access to configure it, or ask the PM to delegate setup.
+
+In an employee’s settings, select an enabled service to grant access to all its tools. For example, give a researcher Playwright to read a website and a developer CodeGraph to find a function in your repository. Turning off or deleting a service removes it from employee settings.
+
 ## Hand off the work
 
 *Describe the goal in group chat, or talk directly to an employee.*
@@ -81,6 +87,14 @@ The pixel office makes the team visible: employees have names, desks, and room t
 For example, ask the PM in group chat:
 
 > Build an introduction page for this project. Inspect the existing structure first, then arrange the frontend implementation and documentation. When finished, tell me which files changed, how to run it, and what you verified.
+
+## Step inside an employee’s workstation
+
+Walk up to a desk and press **R** to open the workstation. When an employee is working, the desk shows an animated work scene. When the employee is idle, open **Employee memory** to explore saved facts by category or source, or **Work history** to see the steps, result, and any issues from a finished assignment.
+
+[![Chen Ji’s idle desktop, Gong Mingting at work, a graph of Gong’s saved memories, and the work log for a Vue frontend assignment](docs/assets/readme/workstations-en.png)](docs/assets/readme/workstations-en.png)
+
+PM Chen Ji asked Gong Mingting to build the frontend for an AI summit website. Gong’s memories preserve the project constraints. The work log records the 18 files delivered and explains why the build still needed verification.
 
 ## Follow the process and inspect the results
 
@@ -134,7 +148,7 @@ Models connect through APIs. After initial setup, add and edit models in office 
 | OpenAI | DeepSeek |
 | MiMo | Kimi |
 | GLM | Doubao |
-| MiniMax | |
+| MiniMax | Qwen |
 
 Model names and API endpoints are configurable. Your chosen model needs to support the tool calls required by the task. Select image input and reasoning settings according to the model's actual capabilities.
 

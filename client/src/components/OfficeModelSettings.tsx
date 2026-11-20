@@ -15,8 +15,8 @@ import VisibilityOffRounded from '@mui/icons-material/VisibilityOffRounded'
 import { officeApi, type OfficeModelCatalogue, type OfficeModelProvider, type OfficeModelDetail } from '../services/office/officeApi'
 import { pushToast } from '../state/toastStore'
 
-const colours: Record<string, string> = { openai: '#23796c', deepseek: '#4c66d9', mimo: '#b45b23', kimi: '#3c6285', glm: '#6952a6', doubao: '#277d93', minimax: '#b84369' }
-const marks: Record<string, string> = { openai: 'O', deepseek: 'D', mimo: 'Mi', kimi: 'K', glm: 'G', get doubao() { return t('ui.d') }, minimax: 'M' }
+const colours: Record<string, string> = { openai: '#23796c', deepseek: '#4c66d9', mimo: '#b45b23', kimi: '#3c6285', glm: '#6952a6', doubao: '#277d93', minimax: '#b84369', qwen: '#6552be' }
+const marks: Record<string, string> = { openai: 'O', deepseek: 'D', mimo: 'Mi', kimi: 'K', glm: 'G', get doubao() { return t('ui.d') }, minimax: 'M', qwen: 'Q' }
 const TableFrame = styled.div`
   height: 242px; overflow: auto; border: 1px solid #e0ebee; border-radius: 12px;
   scrollbar-width: thin; scrollbar-color: #c2d2da transparent;
@@ -249,7 +249,7 @@ export default function OfficeModelSettings() {
         <Mark $provider={item.id} aria-hidden="true">{marks[item.id]}</Mark><span style={{ flex: 1, textAlign: 'left' }}>{providerLabel(item.id, item.name)}</span><ChevronRightRounded sx={{ fontSize: 18, color: '#8b9bad' }} />
       </ProviderButton>)}</ProviderGrid> : <form onSubmit={save} noValidate aria-busy={readingDetail}>
         <FormBody>
-          <label>{t('ui.model_name')}<InputField autoFocus value={modelName} onChange={setModelName} disabled={formDisabled} placeholder={t('ui.enter_the_actual_model_id')} name="modelName" /></label>
+          <label>{t('ui.model_name')}<InputField autoFocus value={modelName} onChange={setModelName} disabled={formDisabled} placeholder={provider.id === 'qwen' ? 'qwen-plus' : t('ui.enter_the_actual_model_id')} name="modelName" /></label>
           <label>{t('ui.api_url')}<InputField value={baseUrl} onChange={setBaseUrl} disabled={formDisabled} placeholder={readingDetail ? '' : provider.baseUrl} name="baseUrl" /></label>
           <label>API Key<div className="secret"><input name="apiKey" autoComplete="off" spellCheck={false} type={showKey ? 'text' : 'password'} value={apiKey} onChange={e => setApiKey(e.target.value)} disabled={formDisabled} placeholder={readingDetail ? '' : editing?.apiKeyConfigured ? t('ui.configured_leave_blank_to_keep') : t('ui.enter_api_key')} />
             <IconButton type="button" disabled={formDisabled} aria-label={showKey ? t('ui.hide_api_key') : t('ui.show_api_key')} onClick={() => setShowKey(!showKey)}>{showKey ? <VisibilityOffRounded fontSize="small" /> : <VisibilityRounded fontSize="small" />}</IconButton></div></label>
@@ -267,7 +267,7 @@ export default function OfficeModelSettings() {
                   '& .MuiSwitch-switchBase.Mui-checked.Mui-disabled + .MuiSwitch-track': { bgcolor: '#85b7b2', opacity: .5 },
                 }} />
             </div> : <>
-              <label id="office-thinking-label">{t('ui.reasoning_effort')}</label>
+              <label id="office-thinking-label">{provider.id === 'qwen' ? t('ui.reasoning_mode') : t('ui.reasoning_effort')}</label>
               <Select value={thinkingLevel} disabled={formDisabled} displayEmpty labelId="office-thinking-label"
                 data-office-thinking-select IconComponent={KeyboardArrowDownRounded}
                 renderValue={() => thinkingLabel(thinkingLevel)}

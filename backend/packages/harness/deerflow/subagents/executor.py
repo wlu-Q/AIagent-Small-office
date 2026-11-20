@@ -1022,6 +1022,11 @@ class SubagentExecutor:
                 token_usage_records=collector.snapshot_records() if collector is not None else None,
             )
 
+        finally:
+            if scope := self.office_context.get('office_mcp_scope'):
+                from deerflow.mcp.session_pool import get_session_pool
+                await get_session_pool().close_scope(f'{self.user_id}:delegate:{scope}')
+
         return result
 
     def _execute_in_isolated_loop(self, task: str, result_holder: SubagentResult | None = None) -> SubagentResult:

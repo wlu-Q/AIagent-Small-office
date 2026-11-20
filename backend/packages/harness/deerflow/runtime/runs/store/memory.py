@@ -97,6 +97,15 @@ class MemoryRunStore(RunStore):
         indexed_results.sort(key=lambda item: (item[1]["created_at"], item[0]), reverse=True)
         return [run for _, run in indexed_results[:limit]]
 
+    async def list_assistant_run_headers(self, thread_ids, assistant_id, *, metadata_keys, user_id):
+        owner = resolve_user_id(user_id, method_name="MemoryRunStore.list_assistant_run_headers")
+        return [
+            {**{key: run[key] for key in ("run_id", "thread_id", "created_at", "updated_at", "events_finalized", "status")},
+             **{key: run["metadata"].get(key) for key in metadata_keys}}
+            for thread_id in thread_ids for run_id in self._runs_by_thread.get(thread_id, ())
+            if (run := self._runs[run_id])["user_id"] == owner and run["assistant_id"] == assistant_id
+        ]
+
     async def find_by_thread_metadata(
         self,
         thread_id,

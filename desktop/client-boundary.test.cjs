@@ -13,7 +13,7 @@ const gatewayStatusContractPath = path.join(root, 'contracts', 'desktop-gateway-
 const expectedInvokeChannels = [
   'office-desktop:listExecutionApprovals',
   'office-desktop:decideExecutionApproval',
-  'office-desktop:getOfficeEmployeeTools',
+  'office-desktop:listMcpServices', 'office-desktop:changeMcpService', 'office-desktop:getOfficeEmployeeTools',
   'office-desktop:saveOfficeEmployeeTools',
   'office-desktop:library',
   'office-desktop:openExternalUrl',
@@ -39,6 +39,9 @@ const expectedInvokeChannels = [
   'office-desktop:setLanguage',
   'office-desktop:saveOfficeSettings',
   'office-desktop:getUserMemory',
+  'office-desktop:getEmployeeMemory',
+  'office-desktop:listWorkLogDays',
+  'office-desktop:getWorkLogDay',
   'office-desktop:createMemoryFact',
   'office-desktop:updateMemoryFact',
   'office-desktop:deleteMemoryFact',
@@ -71,7 +74,7 @@ const expectedInvokeChannels = [
 const expectedBridgeMethods = [
   'listExecutionApprovals',
   'decideExecutionApproval',
-  'getOfficeEmployeeTools',
+  'listMcpServices', 'changeMcpService', 'getOfficeEmployeeTools',
   'saveOfficeEmployeeTools',
   'officeLibrary',
   'openExternalUrl',
@@ -97,6 +100,9 @@ const expectedBridgeMethods = [
   'setLanguage',
   'saveOfficeSettings',
   'getUserMemory',
+  'getEmployeeMemory',
+  'listWorkLogDays',
+  'getWorkLogDay',
   'createMemoryFact',
   'updateMemoryFact',
   'deleteMemoryFact',
@@ -570,6 +576,9 @@ test('Office IPC handlers forward only the approved Gateway requests', async () 
   await invoke('updateOfficeModel', 'model/one', modelEdit)
   await invoke('setOfficeDefaultModel', 'model-one')
   await invoke('getUserMemory')
+  await invoke('getEmployeeMemory', 'employee/one')
+  await invoke('listWorkLogDays', 'employee-one', '2026-11-18')
+  await invoke('getWorkLogDay', 'employee-one', '2026-11-17')
   await invoke('createMemoryFact', { content: '偏好简洁回答', category: 'user_preference', confidence: 1 })
   await invoke('updateMemoryFact', 'fact-one', { content: '偏好简洁回答' })
   await invoke('deleteMemoryFact', 'fact-one')
@@ -615,6 +624,9 @@ test('Office IPC handlers forward only the approved Gateway requests', async () 
     { url: '/api/office/models/model%2Fone', method: 'PUT', body: modelEdit },
     { url: '/api/office/models/default', method: 'PUT', body: { modelId: 'model-one' } },
     { url: '/api/memory', method: 'GET', body: undefined },
+    { url: '/api/office/employees/employee%2Fone/memory', method: 'GET', body: undefined },
+    { url: '/api/office/employees/employee-one/work-logs?before=2026-11-18', method: 'GET', body: undefined },
+    { url: '/api/office/employees/employee-one/work-logs/2026-11-17', method: 'GET', body: undefined },
     { url: '/api/memory/facts', method: 'POST', body: { content: '偏好简洁回答', category: 'user_preference', confidence: 1 } },
     { url: '/api/memory/facts/fact-one', method: 'PATCH', body: { content: '偏好简洁回答' } },
     { url: '/api/memory/facts/fact-one', method: 'DELETE', body: undefined },

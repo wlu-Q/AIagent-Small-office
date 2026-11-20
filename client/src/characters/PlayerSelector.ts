@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import MyPlayer from './MyPlayer'
 import { PlayerBehavior } from '../types/PlayerBehavior'
 import Item from '../items/Item'
+import Computer from '../items/Computer'
 import { NavKeys } from '../types/KeyboardState'
 export default class PlayerSelector extends Phaser.GameObjects.Zone {
   selectedItem?: Item
@@ -37,7 +38,8 @@ export default class PlayerSelector extends Phaser.GameObjects.Zone {
     // while currently selecting an item,
     // if the selector and selection item stop overlapping, clear the dialog box and selected item
     if (this.selectedItem) {
-      if (!this.scene.physics.overlap(this, this.selectedItem)) {
+      if (!this.scene.physics.overlap(this, this.selectedItem) ||
+        (this.selectedItem instanceof Computer && !this.selectedItem.canInteractFrom(player))) {
         this.selectedItem.clearDialogBox()
         this.selectedItem = undefined
       }

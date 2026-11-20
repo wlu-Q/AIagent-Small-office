@@ -10,7 +10,7 @@ import json
 import sqlite3
 import time
 from collections.abc import Mapping
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -96,12 +96,13 @@ class ExecutionReceiptStore:
     """Durable tool-call receipts, not a task planner or scheduler."""
 
     TERMINAL = frozenset({'succeeded', 'failed', 'interrupted', 'timeout', 'unknown'})
+    FILENAME = 'office-execution-receipts.v1.sqlite3'
 
     def __init__(self, *, paths, user_id: str):
         _required(user_id, 'user_id')
         self.user_id = user_id
         self.paths = paths
-        self.path = paths.user_dir(user_id) / 'office-execution-receipts.v1.sqlite3'
+        self.path = paths.user_dir(user_id) / self.FILENAME
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:
             db.executescript('''CREATE TABLE IF NOT EXISTS delegation_receipts (
@@ -145,6 +146,27 @@ class ExecutionReceiptStore:
                 (self.user_id, employee_id, project_id),
             ).fetchall()
         return [self._receipt(row) for row in rows]
+
+    @classmethod
+    def work_log_receipts(cls, paths, user_id, employee_id, day=None):
+        path = paths.user_dir(user_id) / cls.FILENAME
+        if not path.is_file():
+            return []
+        local_day = "date(updated_at / 1000, 'unixepoch', 'localtime')"
+        fields = ('receipt_key, thread_id, parent_run_id, native_task_id, status, updated_at, '
+                  "json_extract(input_ref_json, '$.task') AS task, result_ref_json, evidence_json"
+                  if day else f'{local_day} AS day, count(*) AS count')
+        sql = (f'SELECT {fields} FROM delegation_receipts WHERE user_id=? AND employee_id=? '
+               "AND status IN ('succeeded','failed','timeout','interrupted')")
+        params = [user_id, employee_id]
+        if day:
+            sql += f' AND {local_day}=?'
+            params.append(day.isoformat())
+        else:
+            sql += ' GROUP BY day'
+        with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as db:
+            db.row_factory = sqlite3.Row
+            return [dict(row) for row in db.execute(sql, params)]
 
     @staticmethod
     def _receipt(row):

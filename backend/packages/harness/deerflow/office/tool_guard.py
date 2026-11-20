@@ -10,6 +10,9 @@ class EmployeeToolGuard(AgentMiddleware):
         self.agent_dir = agent_dir
         self.revision = contract.revision
         self.names = frozenset(contract.runtime_names)
+        from deerflow.mcp.office_registry import registry
+        self.mcp_bindings = {tool.name: tool.metadata['office_mcp_binding'] for tool in registry.loaded_tools()
+                             if tool.name in self.names}
 
     def _check_revision(self):
         if manifest_revision(load_tool_manifest(self.agent_dir)) != self.revision:
@@ -28,6 +31,13 @@ class EmployeeToolGuard(AgentMiddleware):
 
     def _denied(self, request):
         self._check_revision()
+        from deerflow.mcp.office_registry import registry
+        metadata = getattr(getattr(request, 'tool', None), 'metadata', None) or {}
+        name = request.tool_call['name']
+        binding = metadata.get('office_mcp_binding') or self.mcp_bindings.get(name)
+        if binding and (binding != self.mcp_bindings.get(name) or not registry.binding_is_current(name, binding)):
+            return ToolMessage(content='MCP service changed or disconnected.', tool_call_id=request.tool_call['id'],
+                               name=request.tool_call['name'], status='error')
         if request.tool_call['name'] not in self.names:
             return ToolMessage(content='Tool is not authorized by this employee tool contract.',
                                tool_call_id=request.tool_call['id'], name=request.tool_call['name'], status='error')

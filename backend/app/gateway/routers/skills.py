@@ -399,23 +399,9 @@ async def update_skill(skill_name: str, body: SkillUpdateRequest, request: Reque
         # CUSTOM skills use per-user _skill_states.json (isolated state)
         # so that two users with same-named custom skills can toggle independently.
         if skill.category == SkillCategory.PUBLIC:
-            config_path = ExtensionsConfig.resolve_config_path()
-            if config_path is None:
-                config_path = project_root() / "extensions_config.json"
-                logger.info(f"No existing extensions config found. Creating new config at: {config_path}")
-
-            extensions_config = get_extensions_config()
-            extensions_config.skills[skill_name] = SkillStateConfig(enabled=body.enabled)
-
-            config_data = {
-                "mcpServers": {name: server.model_dump() for name, server in extensions_config.mcp_servers.items()},
-                "skills": {name: {"enabled": skill_config.enabled} for name, skill_config in extensions_config.skills.items()},
-            }
-
-            with open(config_path, "w", encoding="utf-8") as f:
-                json.dump(config_data, f, indent=2)
-
-            logger.info(f"Skills configuration updated and saved to: {config_path}")
+            from deerflow.config.extensions_store import edit_extensions
+            with edit_extensions() as data:
+                data.setdefault('skills', {}).setdefault(skill_name, {})['enabled'] = body.enabled
             reload_extensions_config()
         else:
             storage.set_skill_enabled_state(skill_name, body.enabled)

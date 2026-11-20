@@ -100,6 +100,7 @@ export type OfficeExecutionApproval = {
   project_id: string | null
 }
 export type OfficeEmployeeTools = {
+  mcpServices: { id: string; name: string }[]
   tools: string[]; revision: string; requiredTools: string[]
   availableTools: string[]; unavailableTools: Record<string, string>
   choices: { id: string; label: string; description: string; members: string[]; required: boolean; unavailableReason: string }[]
@@ -133,6 +134,27 @@ export type OfficeMemoryFact = {
 
 export type OfficeMemoryResponse = {
   facts: OfficeMemoryFact[]
+}
+
+export type EmployeeMemoryFact = OfficeMemoryFact & {
+  confidence: number
+  createdAt: string
+  source: string
+  sourceError?: string | null
+}
+
+export type WorkLogDays = { days: { date: string; count: number }[]; nextBefore: string | null }
+export type WorkLogDay = { date: string; tasks: {
+  id: string; source: 'private' | 'group' | 'delegation'; task: string | null
+  startedAt: string | null; endedAt: string | null; recordedAt: string
+  steps: { text: string; error: boolean }[]; result: string | null; issue: string | null; outcome: string
+}[] }
+
+export type EmployeeMemoryResponse = {
+  lastUpdated: string
+  facts: EmployeeMemoryFact[]
+  user: Record<string, { summary: string; updatedAt: string }>
+  history: Record<string, { summary: string; updatedAt: string }>
 }
 
 export type OfficeMemoryFactInput = {
@@ -397,6 +419,8 @@ export const officeApi = {
   decideExecutionApproval(id: string, hash: string, decision: 'approve' | 'reject') {
     return getBridge().decideExecutionApproval(id, hash, decision)
   },
+  listMcpServices() { return getBridge().listMcpServices() },
+  changeMcpService(name: string, change: import('./mcp').McpChange) { return getBridge().changeMcpService(name, change) },
   getEmployeeTools(employeeId: string) {
     return getBridge().getOfficeEmployeeTools(employeeId)
   },
@@ -408,6 +432,15 @@ export const officeApi = {
   },
   getUserMemory() {
     return getBridge().getUserMemory()
+  },
+  listWorkLogDays(employeeId: string, before?: string) {
+    return getBridge().listWorkLogDays(employeeId, before)
+  },
+  getWorkLogDay(employeeId: string, day: string) {
+    return getBridge().getWorkLogDay(employeeId, day)
+  },
+  getEmployeeMemory(employeeId: string) {
+    return getBridge().getEmployeeMemory(employeeId)
   },
   createMemoryFact(payload: OfficeMemoryFactInput) {
     return getBridge().createMemoryFact(payload)

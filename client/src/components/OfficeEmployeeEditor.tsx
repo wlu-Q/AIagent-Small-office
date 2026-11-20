@@ -1,9 +1,11 @@
 import { t, useLocale, roleLabel } from '../i18n'
 import { useEffect, useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, IconButton, Stack } from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton } from '@mui/material'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import styled from '@emotion/styled'
 import EmployeeModelSelect from './EmployeeModelSelect'
+import { pushToast } from '../state/toastStore'
 
 import {
   officeApi,
@@ -340,6 +342,22 @@ const EmptyDetail = styled.div`
   font-size: 13px;
 `
 
+const StackedDeleteTarget = styled.div`
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid #e4ebf0;
+  border-radius: 8px;
+  background: #f3f6f9;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+
+  > span {
+    color: #52657f;
+    font-size: 12px;
+  }
+`
+
 type PersonalInfo = Required<OfficeEmployeePersonalInfoInput>
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error)
 const listValue = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
@@ -355,7 +373,6 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
-  const [status, setStatus] = useState('')
   const [stateKnown, setStateKnown] = useState(false)
   const [reload, setReload] = useState(0)
   const [models, setModels] = useState<OfficeManagedModel[]>([])
@@ -364,6 +381,7 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
   const [modelReload, setModelReload] = useState(0)
   const [toolContract, setToolContract] = useState<import('../services/office/officeApi').OfficeEmployeeTools | null>(null)
   const [selectedTools, setSelectedTools] = useState<string[]>([])
+  const enabledServices = toolContract?.mcpServices ?? []
 
   useEffect(() => {
     if (!open) return
@@ -381,7 +399,6 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
     let active = true
     let timer: ReturnType<typeof setTimeout> | undefined
     setStateKnown(false)
-    setStatus('')
     const refresh = async () => {
       try {
         const [next, skills] = await Promise.all([officeApi.listEmployees(), officeApi.listSkills()])
@@ -408,15 +425,37 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
     setConfirmDelete(false)
     if (!open || !employeeId) return
     let active = true
-    void officeApi.getEmployeeTools(employeeId).then(next => {
-      if (active) { setToolContract(next); setSelectedTools(selectedToolNames(next)) }
-    }).catch(loadError => { if (active) setError(errorText(loadError)) })
+    let request = 0
+    let initialized = false
+    const refreshTools = async () => {
+      const seq = ++request
+      try {
+        const next = await officeApi.getEmployeeTools(employeeId)
+        if (!active || seq !== request) return
+        if (!initialized) {
+          setToolContract(next)
+          setSelectedTools(selectedToolNames(next))
+          initialized = true
+        } else {
+          const enabled = new Set(next.mcpServices.map(service => service.id))
+          setToolContract(previous => previous && { ...previous, mcpServices: next.mcpServices })
+          setSelectedTools(current => current.filter(id => !id.startsWith('mcp-service/') || enabled.has(id)))
+        }
+      } catch (loadError) { if (active && seq === request) setError(errorText(loadError)) }
+    }
+    void refreshTools()
+    window.addEventListener('office-mcp-changed', refreshTools)
+    window.addEventListener('focus', refreshTools)
     void officeApi.getEmployee(employeeId).then((next) => {
       if (!active) return
       setDetail(next)
       setForm(next.personalInfo)
     }).catch((loadError) => { if (active) setError(errorText(loadError)) })
-    return () => { active = false }
+    return () => {
+      active = false
+      window.removeEventListener('office-mcp-changed', refreshTools)
+      window.removeEventListener('focus', refreshTools)
+    }
   }, [open, employeeId, reload])
 
   const employee = employees.find((item) => item.id === employeeId)
@@ -425,7 +464,6 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
 
   const change = (patch: Partial<PersonalInfo>) => {
     setForm((current) => current ? { ...current, ...patch } : current)
-    setStatus('')
   }
 
   const refreshEmployees = async () => {
@@ -438,16 +476,21 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
     if (!form || !editable || !toolContract) return
     setSaving(true)
     setError('')
-    setStatus('')
     let toolsSaved = false
     try {
-      if ([...selectedTools].sort().join('\n') !== [...toolContract.tools].sort().join('\n')) {
+      const sameItems = (left: string[], right: string[]) => left.length === right.length && left.every(item => right.includes(item))
+      if (!sameItems(selectedTools, toolContract.tools)) {
         const nextTools = await officeApi.saveEmployeeTools(employeeId, selectedTools, toolContract.revision)
         setToolContract(nextTools); setSelectedTools(selectedToolNames(nextTools)); toolsSaved = true
       }
-      const skills = (await officeApi.listSkills()).filter((skill) => skill.enabled).map((skill) => skill.name)
-      await officeApi.saveEmployeePersonalInfo(employeeId, { ...form, displayName: form.displayName.trim(),
-        skills: form.skills.filter((skill) => skills.includes(skill)) })
+      const saved = detail?.personalInfo
+      const enabledSkills = (await officeApi.listSkills()).filter(skill => skill.enabled).map(skill => skill.name)
+      const skills = form.skills.filter(skill => enabledSkills.includes(skill))
+      if (!saved || form.displayName.trim() !== saved.displayName || form.prompt !== saved.prompt ||
+          form.modelProfileId !== saved.modelProfileId || !sameItems(skills, saved.skills)) {
+        await officeApi.saveEmployeePersonalInfo(employeeId, { ...form, displayName: form.displayName.trim(),
+          skills })
+      }
       try {
         const next = await officeApi.getEmployee(employeeId)
         setDetail(next)
@@ -456,31 +499,31 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
         setToolContract(nextTools); setSelectedTools(selectedToolNames(nextTools))
         await refreshEmployees()
       } catch (refreshError) {
-        setError(t('ui.saved_but_details_could_not_refresh_value', { value1: (errorText(refreshError)) }))
+        pushToast(t('ui.saved_but_details_could_not_refresh_value', { value1: errorText(refreshError) }), 'warning')
+        return
       }
-      setStatus(t('ui.saved'))
+      pushToast(t('employee.configuration_saved'), 'success')
     } catch (saveError) {
-      setError(toolsSaved ? t('employee.partial_save_error', { error: errorText(saveError) }) : errorText(saveError))
+      pushToast(toolsSaved ? t('employee.partial_save_error', { error: errorText(saveError) }) : errorText(saveError), 'error')
     } finally {
       setSaving(false)
     }
   }
 
   const deleteEmployee = async () => {
-    if (!employee || !canDelete) return
+    if (!confirmDelete || !employee || !canDelete) return
     setDeleting(true)
     setError('')
-    setStatus('')
     try {
       await officeApi.deleteEmployee(employee.id)
       const next = await refreshEmployees()
       setConfirmDelete(false)
       setDetail(null)
       setForm(null)
-      setStatus(t('ui.employee_deleted'))
+      pushToast(t('ui.employee_deleted'), 'success')
       setEmployeeId(next[0]?.id || '')
     } catch (deleteError) {
-      setError(errorText(deleteError))
+      pushToast(errorText(deleteError), 'error')
       setConfirmDelete(false)
     } finally {
       setDeleting(false)
@@ -557,6 +600,17 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
                 </Section>
 
                 <Section>
+                  <SectionTitle id="employee-mcp-title">MCP</SectionTitle>
+                  <fieldset aria-labelledby="employee-mcp-title" data-edit-employee-mcp disabled={!editable}>
+                    {enabledServices.map(({ id, name }) => <label key={name} style={{ overflowWrap: 'anywhere' }}>
+                      <input type="checkbox" data-edit-mcp={name} checked={selectedTools.includes(id)}
+                        onChange={event => { const checked = event.target.checked; setSelectedTools(old => checked ? [...old, id] : old.filter(key => key !== id)) }} />{name}
+                    </label>)}
+                    {!enabledServices.length && <p>{t('mcp.noneEnabled')}</p>}
+                  </fieldset>
+                </Section>
+
+                <Section>
                   <SectionTitle>Tools</SectionTitle>
                   <ReadonlyBox data-edit-employee-tools>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 20px' }}>
@@ -570,7 +624,6 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
                           onChange={event => {
                             const checked = event.target.checked
                             setSelectedTools(current => checked ? Array.from(new Set([...current, ...tool.members])) : current.filter(id => !tool.members.includes(id)))
-                            setStatus('')
                           }} />
                         {tool.label}{tool.required && <small style={{ color: '#94a3b8' }}>{t('ui.required')}</small>}
                       </label>})}
@@ -579,15 +632,8 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
                   </ReadonlyBox>
                 </Section>
 
-                {confirmDelete && <ReadonlyBox>
-                  {t('employee.delete_confirmation', { name: employee.displayName, role: roleLabel(employee) })}<Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-                    <Button data-delete-employee-confirm color="error" variant="contained" disabled={deleting} onClick={() => void deleteEmployee()}>{t('ui.confirm_deletion')}</Button>
-                    <Button disabled={deleting} onClick={() => setConfirmDelete(false)}>{t('ui.keep_employee')}</Button>
-                  </Stack>
-                </ReadonlyBox>}
               </Fields> : <EmptyDetail>{t('ui.loading_employee_details')}</EmptyDetail>}
               {error && <p role="alert" data-employee-edit-error>{error}</p>}
-              {status && <p role="status" data-employee-edit-status>{status}</p>}
             </DetailPane>
           </ManagementLayout>
         )}
@@ -597,6 +643,56 @@ export default function OfficeEmployeeEditor({ open, onClose }: { open: boolean;
         <Button data-close-employee-editor disabled={saving || deleting} onClick={onClose}>{t('ui.close')}</Button>
         <Button data-save-employee variant="contained" disabled={!editable || !toolContract || !form?.displayName.trim() || !form?.prompt.trim()} onClick={() => void save()}>{saving ? t('ui.saving_changes') : t('ui.save_configuration')}</Button>
       </DialogActions>
+      <Dialog
+        open={open && confirmDelete && !!employee}
+        onClose={() => { if (!deleting) setConfirmDelete(false) }}
+        fullWidth
+        maxWidth="xs"
+        sx={{ zIndex: 23001 }}
+        BackdropProps={{ sx: { backgroundColor: 'rgba(19, 33, 49, 0.44)' } }}
+        PaperProps={{ role: 'alertdialog', sx: {
+          maxWidth: 396, width: 'calc(100% - 32px)', m: 2,
+          border: '1px solid #dce5ee', borderRadius: '16px', bgcolor: '#fbfcfd',
+          color: '#172b42', boxShadow: '0 20px 56px rgba(19, 33, 49, 0.24)',
+        } }}
+        aria-labelledby="employee-delete-title"
+        aria-describedby="employee-delete-description"
+      >
+        <DialogTitle id="employee-delete-title" sx={{
+          display: 'flex', alignItems: 'center', gap: 1.5, px: 3, pt: 3, pb: 2,
+          fontFamily: 'inherit', fontSize: 18, fontWeight: 700, lineHeight: 1.4,
+        }}>
+          <DeleteOutlineRoundedIcon sx={{
+            width: 38, height: 38, boxSizing: 'border-box', p: '8px', flexShrink: 0,
+            borderRadius: '10px', bgcolor: '#f8e9e7', color: '#9c352e',
+          }} />
+          {t('employee.confirm_delete_title')}
+        </DialogTitle>
+        <DialogContent id="employee-delete-description" sx={{ px: 3, pb: 2.5 }}>
+          {employee && <StackedDeleteTarget>
+            <strong>{employee.displayName}</strong>
+            <span>{roleLabel(employee)}</span>
+          </StackedDeleteTarget>}
+          <p style={{ margin: '10px 0 0', color: '#52657f', fontSize: 13, lineHeight: 1.65 }}>
+            {t('employee.delete_consequence')}
+          </p>
+        </DialogContent>
+        <DialogActions sx={{
+          px: 3, py: 1.75, gap: 1, bgcolor: '#f3f6f9', borderTop: '1px solid #e4ebf0',
+          '& .MuiButton-root': { m: 0, minWidth: 76, minHeight: 36, borderRadius: '8px', textTransform: 'none', fontWeight: 650 },
+          '& .Mui-focusVisible': { outline: '2px solid currentColor', outlineOffset: 2 },
+          '& .MuiButton-contained.Mui-focusVisible': { outlineColor: '#9c352e' },
+        }} disableSpacing>
+          <Button autoFocus data-delete-employee-cancel variant="outlined" disabled={deleting} onClick={() => setConfirmDelete(false)}
+            sx={{ color: '#334b63', bgcolor: '#fff', borderColor: '#c8d5e1', '&:hover': { bgcolor: '#edf2f7', borderColor: '#a3b7ca' } }}>
+            {t('ui.cancel')}
+          </Button>
+          <Button data-delete-employee-confirm color="error" variant="contained" disableElevation disabled={!canDelete} onClick={() => void deleteEmployee()}
+            sx={{ bgcolor: '#9c352e', '&:hover': { bgcolor: '#812b26' } }}>
+            {deleting ? t('ui.deleting') : t('employee.confirm_delete_action')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   )
 }

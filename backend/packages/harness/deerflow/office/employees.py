@@ -59,7 +59,7 @@ CREATE_EMPLOYEE_FIELDS = {
     "prompt",
     "skills",
 }
-DEFAULT_WORKSTATION_IDS = tuple(f"workstation-{index:02d}" for index in range(1, 13))
+DEFAULT_WORKSTATION_IDS = tuple(f"workstation-{index:02d}" for index in range(1, 25))
 _TOOL_GROUP_PERMISSIONS = {
     "web": "network.read",
     "file:read": "workspace.read",
@@ -943,9 +943,12 @@ class OfficeEmployeeService:
         authority = normalize_authority((config.get('runtime_contract') or {}).get('authority'))
         required = required_tool_names(authority)
         from deerflow.config import get_app_config
-        if get_app_config().tool_search.enabled and any(t.startswith('mcp/') for t in resolved.authorized_ids):
+        from deerflow.mcp.office_registry import registry
+        services = {entry.grant: name for name, entry in registry.entries().items()}
+        visible = [key for key in resolved.authorized_ids if not key.startswith('mcp-service/') or key in services]
+        if get_app_config().tool_search.enabled and any(key.startswith(('mcp/', 'mcp-service/')) for key in visible):
             required.add('tool_search')
-        return {'tools': list(resolved.authorized_ids), 'revision': resolved.revision,
+        return {'mcpServices': [{'id': key, 'name': name} for key, name in services.items()], 'tools': visible, 'revision': resolved.revision,
                 'requiredTools': sorted(required),
                 'choices': employee_tool_choices(build_tool_catalog(model_name=resolve_employee_model(config)), authority),
                 'availableTools': list(resolved.available_ids), 'unavailableTools': resolved.unavailable_reasons}
@@ -968,6 +971,11 @@ class OfficeEmployeeService:
                                 if choice['required'] for name in choice['members']}
             manifest = EmployeeToolManifest(1, tuple(sorted(set(manifest.tools) | required_members)))
             current = set(load_tool_manifest(self._agent_dir(employee_id)).tools)
+            for key in manifest.tools:
+                if key.startswith('mcp-service/') and key not in catalog:
+                    raise ValueError('MCP service changed; reload the employee configuration')
+                if key.startswith('mcp/') and key not in current:
+                    raise ValueError('Select the MCP service as a whole')
             if unknown := set(manifest.tools) - current - catalog.keys():
                 raise ValueError(f'Unknown tools: {sorted(unknown)}')
             deferred_enabled = get_app_config().tool_search.enabled

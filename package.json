@@ -26,6 +26,7 @@
     "test:desktop-client": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs && electron desktop/client-render-smoke.cjs --refresh-isolation",
     "test:chat-refresh": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --refresh-isolation",
     "test:chat-delivery": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --chat-delivery",
+    "test:mcp-settings": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --mcp-settings",
     "test:model-settings": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --model-settings && node desktop/run-gateway-integration.cjs --model-settings",
     "test:employee-model": "npm run desktop:client:build && electron desktop/client-render-smoke.cjs --employee-model && node desktop/run-gateway-integration.cjs --model-settings",
     "test:file-preview": "npm run desktop:client:build && node desktop/run-gateway-integration.cjs --file-preview",

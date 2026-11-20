@@ -1,0 +1,127 @@
+async page => {
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.addInitScript({ path: 'tests/workstation-fixture.js' })
+  await page.goto(`http://127.0.0.1:5179/?workstation-test=${Date.now()}#/office`)
+  await page.bringToFront()
+  await page.waitForFunction(() => window.game?.scene.getScene('game')?.officeEmployees?.size === 1)
+  const entrance = await page.evaluate(() => {
+    const scene = window.game.scene.getScene('game')
+    scene.myPlayer.setPosition(-48, 573).play(`${scene.myPlayer.playerTexture}_idle_up`, true)
+    scene.myPlayer.playerContainer.setPosition(-48, 543)
+    scene.playerSelector.setPosition(-48, 541)
+    scene.cameras.main.stopFollow().setZoom(1.5).centerOn(-48, 530)
+    return { frame: scene.workstationComputers.get('workstation-04').frame.name, employee: scene.getOfficeEmployeeSnapshot() }
+  })
+  await page.waitForFunction(() => window.game.scene.getScene('game').playerSelector.selectedItem?.itemType === 0)
+  await page.keyboard.press('e', { delay: 200 })
+  await page.waitForFunction(() => window.game.scene.getScene('game').playerSelector.selectedItem?.itemType === 1)
+  await page.screenshot({ path: 'output/playwright/workstation-existing-r-entry.png' })
+  await page.keyboard.press('r', { delay: 200 })
+  await page.getByRole('dialog').waitFor({ state: 'visible' })
+  await page.locator('[data-operating="true"]').waitFor()
+  await page.waitForFunction(() => document.querySelector('[data-screen-clip]')?.naturalWidth === 512)
+  await page.locator('[data-artwork-ready="true"]').waitFor()
+  if (await page.locator('.workstation-preview__eyebrow').count()) throw new Error('Workstation number is still visible')
+  if (await page.locator('.workstation-preview__footer').innerText() !== 'Esc 关闭 · 靠近工位按 R 查看') throw new Error('Footer must only retain the keyboard hint')
+  const geometry = await page.getByRole('dialog').boundingBox()
+  if (Math.abs(geometry.width / 1440 - 0.88) > 0.002 || Math.abs(geometry.height / 1000 - 0.9) > 0.002) throw new Error(`Incorrect geometry: ${JSON.stringify(geometry)}`)
+  const before = await page.evaluate(() => {
+    const scene = window.game.scene.getScene('game')
+    return { x: scene.myPlayer.x, y: scene.myPlayer.y, keyboard: scene.input.keyboard.enabled, pointer: scene.input.enabled }
+  })
+  if (before.keyboard || before.pointer) throw new Error('World inputs are not locked')
+  await page.keyboard.down('d')
+  await page.waitForTimeout(300)
+  await page.keyboard.up('d')
+  const after = await page.evaluate(() => ({ x: window.game.scene.getScene('game').myPlayer.x, y: window.game.scene.getScene('game').myPlayer.y }))
+  if (before.x !== after.x || before.y !== after.y) throw new Error('Player moved behind dialog')
+  await page.screenshot({ path: 'output/playwright/workstation-working.png' })
+  const screenBefore = await page.locator('[data-screen-clip]').screenshot()
+  await page.waitForTimeout(800)
+  const screenAfter = await page.locator('[data-screen-clip]').screenshot()
+  if (screenBefore.equals(screenAfter)) throw new Error('GIF did not animate')
+  const firstClip = await page.locator('[data-screen-clip]').getAttribute('data-screen-clip')
+  await page.waitForFunction(previous => {
+    const current = document.querySelector('[data-screen-clip]')?.getAttribute('data-screen-clip')
+    return Boolean(current && current !== previous)
+  }, firstClip, { timeout: 18000 })
+  const secondClip = await page.locator('[data-screen-clip]').getAttribute('data-screen-clip')
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.locator('[data-screen-clip]').waitFor({ state: 'detached' })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.locator('[data-screen-clip]').waitFor({ state: 'visible' })
+  await page.evaluate(async () => {
+    window.__workstationEmployees[0].state = 'disabled'
+    const { officeApi } = await import('/src/services/office/officeApi.ts')
+    officeApi.invalidateEmployees()
+    await officeApi.listEmployees({ fresh: true })
+  })
+  await page.locator('[data-workstation-state="disabled"]').waitFor()
+  if (await page.locator('[data-screen-clip]').count()) throw new Error('Disabled screen is still animated')
+  await page.evaluate(async () => {
+    window.__workstationEmployees[0].state = 'idle'
+    const { officeApi } = await import('/src/services/office/officeApi.ts')
+    officeApi.invalidateEmployees()
+    await officeApi.listEmployees({ fresh: true })
+  })
+  await page.locator('[data-workstation-state="idle"]').waitFor()
+  if (await page.locator('[data-screen-clip]').count()) throw new Error('Idle screen is still animated')
+  await page.waitForFunction(async () => {
+    const { SCREEN_RECT } = await import('/src/workstations/workstationModel.ts')
+    const canvas = document.querySelector('.workstation-preview canvas')
+    const { x, y, width, height } = SCREEN_RECT
+    const pixels = canvas.getContext('2d').getImageData(x, y, width, height).data
+    return pixels.some((channel, index) => index % 4 !== 3 && channel !== 0)
+  })
+  await page.screenshot({ path: 'output/playwright/workstation-idle.png' })
+  await page.evaluate(async () => {
+    window.__workstationEmployees = []
+    const { officeApi } = await import('/src/services/office/officeApi.ts')
+    officeApi.invalidateEmployees()
+    await officeApi.listEmployees({ fresh: true })
+  })
+  await page.locator('[data-workstation-state="unbound"]').waitFor()
+  await page.locator('[data-workstation-state="unbound"][data-artwork-ready="true"]').waitFor()
+  await page.waitForFunction(async () => {
+    const { SCREEN_RECT } = await import('/src/workstations/workstationModel.ts')
+    const canvas = document.querySelector('.workstation-preview canvas')
+    const { x, y, width, height } = SCREEN_RECT
+    const pixels = canvas.getContext('2d').getImageData(x, y, width, height).data
+    return pixels.every((channel, index) => channel === (index % 4 === 3 ? 255 : 0))
+  })
+  if (await page.locator('[data-screen-clip]').count()) throw new Error('Unbound screen still has a GIF')
+  await page.screenshot({ path: 'output/playwright/workstation-unbound.png' })
+  await page.setViewportSize({ width: 1024, height: 768 })
+  const smaller = await page.getByRole('dialog').boundingBox()
+  if (Math.abs(smaller.width / 1024 - 0.88) > 0.002 || Math.abs(smaller.height / 768 - 0.9) > 0.002) throw new Error('Resize ratios changed')
+  await page.keyboard.press('Escape')
+  await page.getByRole('dialog').waitFor({ state: 'hidden' })
+  await page.locator('.workstation-preview').waitFor({ state: 'detached' })
+  const restored = await page.evaluate(() => {
+    const scene = window.game.scene.getScene('game')
+    return scene.input.enabled && scene.input.keyboard.enabled
+  })
+  if (!restored) throw new Error('World input not restored')
+  await page.waitForFunction(() => window.game.scene.getScene('game').playerSelector.selectedItem?.itemType === 1)
+  await page.keyboard.press('r', { delay: 200 })
+  await page.getByRole('dialog').waitFor({ state: 'visible' })
+  await page.keyboard.press('Tab')
+  const containedFocus = await page.evaluate(() => document.querySelector('.workstation-preview').contains(document.activeElement))
+  if (!containedFocus) throw new Error('Focus escaped the dialog')
+  await page.keyboard.press('Escape')
+  await page.getByRole('dialog').waitFor({ state: 'hidden' })
+  await page.locator('.workstation-preview').waitFor({ state: 'detached' })
+  await page.keyboard.press('e', { delay: 200 })
+  await page.waitForFunction(() => window.game.scene.getScene('game').myPlayer.playerBehavior === 0)
+  await page.evaluate(() => {
+    const scene = window.game.scene.getScene('game')
+    scene.myPlayer.setPosition(-48, 700)
+    scene.myPlayer.playerContainer.setPosition(-48, 670)
+  })
+  await page.keyboard.press('r', { delay: 80 })
+  if (await page.getByRole('dialog').isVisible()) throw new Error('Opened outside approach range')
+  if (errors.length) throw new Error(errors.join('\n'))
+  return { entrance, geometry, smaller, firstClip, secondClip, inputRestored: restored, containedFocus, errors }
+}

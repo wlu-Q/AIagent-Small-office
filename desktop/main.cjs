@@ -566,16 +566,44 @@ function registerIpcHandlers() {
   ))
   ipcMain.handle('office-desktop:getLanguage', () => localization.getLanguage())
   ipcMain.handle('office-desktop:setLanguage', (event, language) => { requireMainFrame(event); return localization.setLanguage(language) })
-  ipcMain.handle('office-desktop:listExecutionApprovals', () => requestGateway('/api/office/execution-approvals'))
-  ipcMain.handle('office-desktop:decideExecutionApproval', (_event, id, hash, decision) =>
-    requestGateway(`/api/office/execution-approvals/${encodeURIComponent(id)}/decision`, { method: 'POST', body: { request_hash: hash, decision } }))
-  ipcMain.handle('office-desktop:getOfficeEmployeeTools', (_event, id) => requestGateway(`/api/office/employees/${encodeURIComponent(id)}/tools`))
-  ipcMain.handle('office-desktop:saveOfficeEmployeeTools', (_event, id, payload) =>
-    requestGateway(`/api/office/employees/${encodeURIComponent(id)}/tools`, { method: 'PUT', body: payload }))
+  ipcMain.handle('office-desktop:listExecutionApprovals', event => {
+    requireMainFrame(event)
+    return requestGateway('/api/office/execution-approvals')
+  })
+  ipcMain.handle('office-desktop:decideExecutionApproval', (event, id, hash, decision) => {
+    requireMainFrame(event)
+    return requestGateway(`/api/office/execution-approvals/${encodeURIComponent(id)}/decision`,
+      { method: 'POST', body: { request_hash: hash, decision } })
+  })
+  ipcMain.handle('office-desktop:listMcpServices', event => {
+    requireMainFrame(event)
+    return requestGateway('/api/mcp/services')
+  })
+  ipcMain.handle('office-desktop:changeMcpService', (event, name, body) => {
+    requireMainFrame(event)
+    return requestGateway('/api/mcp/services/' + encodeURIComponent(name), { method: 'POST', body }, 35000)
+  })
+  ipcMain.handle('office-desktop:getOfficeEmployeeTools', (event, id) => {
+    requireMainFrame(event)
+    return requestGateway(`/api/office/employees/${encodeURIComponent(id)}/tools`)
+  })
+  ipcMain.handle('office-desktop:saveOfficeEmployeeTools', (event, id, payload) => {
+    requireMainFrame(event)
+    return requestGateway(`/api/office/employees/${encodeURIComponent(id)}/tools`, { method: 'PUT', body: payload })
+  })
   ipcMain.handle('office-desktop:saveOfficeSettings', async (_event, payload) => (
     requestGateway('/api/office/settings', { method: 'PATCH', body: payload }, MODEL_SETTINGS_REQUEST_TIMEOUT_MS)
   ))
   ipcMain.handle('office-desktop:getUserMemory', async () => requestGateway('/api/memory'))
+  ipcMain.handle('office-desktop:getEmployeeMemory', async (_event, employeeId) => (
+    requestGateway(`/api/office/employees/${encodeURIComponent(employeeId)}/memory`)
+  ))
+  ipcMain.handle('office-desktop:listWorkLogDays', (_event, employeeId, before) =>
+    requestGateway(`/api/office/employees/${encodeURIComponent(employeeId)}/work-logs${before ? `?before=${encodeURIComponent(before)}` : ''}`))
+  ipcMain.handle('office-desktop:getWorkLogDay', (_event, employeeId, day) => {
+    if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('Invalid work log date')
+    return requestGateway(`/api/office/employees/${encodeURIComponent(employeeId)}/work-logs/${day}`)
+  })
   ipcMain.handle('office-desktop:createMemoryFact', async (_event, payload) => (
     requestGateway('/api/memory/facts', { method: 'POST', body: payload })
   ))

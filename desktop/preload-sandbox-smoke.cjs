@@ -5,7 +5,7 @@ const { app, BrowserWindow } = require('electron')
 const expectedMethods = [
   'listExecutionApprovals',
   'decideExecutionApproval',
-  'getOfficeEmployeeTools',
+  'listMcpServices', 'changeMcpService', 'getOfficeEmployeeTools',
   'saveOfficeEmployeeTools',
   'officeLibrary',
   'getCurrentOfficeWorkflow',
@@ -28,6 +28,9 @@ const expectedMethods = [
   'setLanguage',
   'getServiceStatus',
   'getUserMemory',
+  'getEmployeeMemory',
+  'listWorkLogDays',
+  'getWorkLogDay',
   'getWorkspaceSummary',
   'getZoomFactor',
   'initializeOfficeBootstrap',

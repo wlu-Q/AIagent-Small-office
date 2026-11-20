@@ -1,12 +1,12 @@
 import Phaser from 'phaser'
 import { additionalCharacterTextures } from '../characters/additionalCharacterTextures'
-import { dailyWalkFrames } from '../characters/dailyCharacterAssets'
+import { DAILY_FRONT_IDLE_FRAME, dailyWalkFrames } from '../characters/dailyCharacterAssets'
 
 const standardCharacterDirections = [
   ['right', 0, 24, 50],
   ['up', 6, 30, 51],
   ['left', 12, 36, 49],
-  ['down', 18, 42, 48],
+  ['down', DAILY_FRONT_IDLE_FRAME, 42, 48],
 ] as const
 
 const createStandardCharacterAnims = (

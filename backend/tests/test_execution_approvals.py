@@ -107,7 +107,15 @@ async def test_group_tools_is_one_choice_and_pm_uses_manifest_without_role_black
     monkeypatch.setattr(agents_config, 'get_paths', lambda: svc.paths)
     await svc.create_employee(frontend_employee_payload())
     before = svc.get_employee_tools('frontend-a')
-    after = await svc.save_employee_tools('frontend-a', {'tools': before['tools'] + ['powershell_terminal'], 'expectedRevision': before['revision']})
+    without_terminal = await svc.save_employee_tools('frontend-a', {
+        'tools': [tool for tool in before['tools'] if tool != 'powershell_terminal'],
+        'expectedRevision': before['revision'],
+    })
+    assert 'powershell_run' not in without_terminal['availableTools']
+    after = await svc.save_employee_tools('frontend-a', {
+        'tools': [*without_terminal['tools'], 'powershell_terminal'],
+        'expectedRevision': without_terminal['revision'],
+    })
     assert 'powershell_terminal' in after['tools']
     assert 'powershell_run' not in after['tools']
     assert {'powershell_run', 'powershell_read', 'powershell_list', 'powershell_stop'} <= set(after['availableTools'])

@@ -39,7 +39,7 @@ def employee_app_config():
 
 def test_default_workstation_pool_matches_the_map_capacity() -> None:
     assert DEFAULT_WORKSTATION_IDS == tuple(
-        f"workstation-{index:02d}" for index in range(1, 13)
+        f"workstation-{index:02d}" for index in range(1, 25)
     )
 
 
@@ -70,6 +70,40 @@ def frontend_employee_payload(employee_id: str = "frontend-a") -> dict[str, str]
         "avatar": "adam",
         "modelProfileId": MODEL_PROFILE_ID,
     }
+
+
+@pytest.mark.asyncio
+async def test_expanded_workstations_preserve_bindings_across_restart_and_enforce_capacity(
+    tmp_path: Path,
+) -> None:
+    original, _, _ = build_employee_service(tmp_path, workstation_ids=DEFAULT_WORKSTATION_IDS[:12])
+    for index in range(1, 13):
+        employee = await original.create_employee(frontend_employee_payload(f"employee-{index:02d}"))
+        assert employee["workstationId"] == f"workstation-{index:02d}"
+    original_packages = {
+        filename: filename.read_bytes()
+        for filename in original.paths.user_agents_dir("default").glob("*/office.yaml")
+    }
+
+    expanded, _, _ = build_employee_service(tmp_path, workstation_ids=DEFAULT_WORKSTATION_IDS)
+    for index in range(13, 25):
+        employee = await expanded.create_employee(frontend_employee_payload(f"employee-{index:02d}"))
+        assert employee["workstationId"] == f"workstation-{index:02d}"
+    for filename, contents in original_packages.items():
+        assert filename.read_bytes() == contents
+
+    restarted, _, _ = build_employee_service(tmp_path, workstation_ids=DEFAULT_WORKSTATION_IDS)
+    employees = await restarted.list_employees()
+    assert {employee["id"]: employee["workstationId"] for employee in employees} == {
+        f"employee-{index:02d}": f"workstation-{index:02d}" for index in range(1, 25)
+    }
+    with pytest.raises(RuntimeError, match="No office workstation is available"):
+        await restarted.create_employee(frontend_employee_payload("employee-25"))
+    assert not restarted.paths.user_agent_dir("default", "employee-25").exists()
+
+    await restarted.delete_employee("employee-13")
+    replacement = await restarted.create_employee(frontend_employee_payload("replacement"))
+    assert replacement["workstationId"] == "workstation-13"
 
 
 @pytest.mark.asyncio
@@ -376,10 +410,10 @@ async def test_loaded_deerflow_packages_keep_old_prompt_skills_and_model(tmp_pat
     old_skills = list(old.config.skills)
     await service.save_personal_info("frontend-a", {"prompt": "Next run prompt", "skills": []})
     new = resolve_employee_subagent_package("frontend-a", "default", app)
-    from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE, employee_identity
-    from deerflow.office.presentation import FILE_DELIVERY_GUIDANCE
+    from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE
+    from deerflow.office.presentation import employee_briefing
 
-    assert new.config.system_prompt == employee_identity(new.config.description) + "\n\n" + FILE_DELIVERY_GUIDANCE + "\n\nNext run prompt\n\n" + RESPONSE_LANGUAGE_GUIDANCE
+    assert new.config.system_prompt == employee_briefing(new.config.description) + "\n\nNext run prompt\n\n" + RESPONSE_LANGUAGE_GUIDANCE
     assert new.config.skills == []
     assert old.config.system_prompt == old_prompt != new.config.system_prompt
     assert old.config.skills == old_skills != new.config.skills

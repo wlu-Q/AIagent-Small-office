@@ -1,0 +1,61 @@
+.workstation-preview-modal.MuiModal-root {
+  z-index: 26000;
+}
+
+.workstation-preview-modal .MuiBackdrop-root {
+  background: #241c16b8;
+}
+
+.workstation-preview.MuiPaper-root {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #513d2d;
+  background: #f5e7cd;
+  border: 18px solid transparent;
+  border-image: url('/assets/workstations/frame.png') 130 / 24px / 0 stretch;
+  box-shadow: 7px 8px 0 #34261b80;
+  font-family: ui-monospace, 'Microsoft YaHei', monospace;
+}
+
+.workstation-preview__header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 15px 22px;
+  flex: 0 0 auto;
+  border-bottom: 3px solid #b79a76;
+  box-shadow: 0 3px 0 #fff5dd;
+}
+
+.workstation-preview__header > div { min-width: 0; flex: 1; }
+.workstation-preview h2 { margin: 5px 0 0; font-size: clamp(16px, 1.7vw, 27px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workstation-preview__status { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border: 2px solid #b5b097; background: #e5e5cf; font-size: 13px; white-space: nowrap; }
+.workstation-preview__status i { width: 7px; height: 7px; background: #889776; }
+.workstation-preview__status.is-working { background: #f0d19b; border-color: #c59959; }
+.workstation-preview__status.is-working i { background: #ba7f31; }
+.workstation-preview__close { width: 38px; height: 38px; flex: 0 0 auto; border: 2px solid #866446; background: #f1d9b0; color: #61452e; box-shadow: inset 2px 2px 0 #fff6de, 2px 2px 0 #c3a27c; font-size: 29px; line-height: 1; cursor: pointer; }
+.workstation-preview button:focus-visible { outline: 3px solid #507e77; outline-offset: 3px; }
+.workstation-preview__viewport { position: relative; min-height: 0; flex: 1; margin: 8px 0; display: grid; place-items: center; overflow: hidden; background: #fbe7cc; }
+.workstation-preview__stage { position: relative; flex: none; }
+.workstation-preview canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.workstation-preview__screen { position: absolute; overflow: hidden; background: #202a38; }
+.workstation-preview__screen img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.workstation-preview__screen-message { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: #202a38; color: #f4e4bf; font-size: clamp(10px, 1.1vw, 16px); text-align: center; }
+.workstation-preview__screen-message button { color: #f4e4bf; background: #354254; border: 1px solid #81b4ae; padding: 4px 12px; cursor: pointer; }
+.workstation-preview__artwork-message { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #f5e7cd; }
+.workstation-preview__artwork-message button { color: #513d2d; background: #f1d9b0; border: 2px solid #866446; padding: 6px 14px; cursor: pointer; }
+.workstation-preview__footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; flex: 0 0 auto; padding: 12px 22px; border-top: 2px solid #d3b994; font-size: 12px; color: #81664d; }
+.workstation-preview__desktop { position: absolute; container-type: inline-size; display: flex; flex-direction: column; align-items: flex-start; padding: 1.2% 1%; gap: 1%; }
+.workstation-desktop-icon { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; width: 12%; margin-inline: 0; height: 26%; padding: 2px; border: 1px solid transparent; background: transparent; color: white; font-size: clamp(9px, 2.1cqw, 15px); line-height: 1.15; text-shadow: 1px 1px 2px #173b58; cursor: default; user-select: none; }
+.workstation-desktop-icon:hover { background: #e1f5ff30; border-color: #d4ecff88; }
+.workstation-desktop-icon.is-selected { background: #b0dcff50; border-color: #d4ecff; }
+.workstation-desktop-icon > img { display: block; width: 8.3cqw; height: 8.3cqw; flex-shrink: 1; min-height: 0; object-fit: contain; image-rendering: pixelated; }
+.workstation-desktop-notice { position: absolute; right: 8%; bottom: 17%; padding: 8px 14px; background: #fff9e9; color: #5a5241; border: 2px solid #547d9b; font-size: 12px; }
+.workstation-memory-loading { position: absolute; inset: 8px; z-index: 5; display: grid; place-items: center; background: #fffcf4; border: 3px solid #7a8b80; }
+@media (max-width: 700px), (max-height: 550px) {
+  .workstation-preview__header { padding: 8px 10px; gap: 9px; }
+  .workstation-preview__status { padding: 5px; font-size: 11px; }
+  .workstation-preview__footer { padding: 7px 10px; font-size: 10px; }
+}

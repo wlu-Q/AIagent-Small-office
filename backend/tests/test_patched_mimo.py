@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 
@@ -37,30 +35,10 @@ def test_reasoning_content_injected_into_assistant_tool_call_message():
     human = HumanMessage(content="Check Beijing weather.")
     ai = AIMessage(
         content="",
+        tool_calls=[{"id": "call_weather", "name": "get_weather", "args": {"location": "Beijing"}}],
         additional_kwargs={"reasoning_content": "I need to call the weather tool."},
     )
-    payload_message = {
-        "role": "assistant",
-        "content": "",
-        "tool_calls": [
-            {
-                "id": "call_weather",
-                "type": "function",
-                "function": {"name": "get_weather", "arguments": '{"location":"Beijing"}'},
-            }
-        ],
-    }
-    base_payload = {
-        "messages": [
-            {"role": "user", "content": "Check Beijing weather."},
-            payload_message,
-        ]
-    }
-
-    with patch.object(type(model).__bases__[0], "_get_request_payload", return_value=base_payload):
-        with patch.object(model, "_convert_input") as mock_convert:
-            mock_convert.return_value = MagicMock(to_messages=lambda: [human, ai])
-            payload = model._get_request_payload([human, ai])
+    payload = model._get_request_payload([human, ai])
 
     assert payload["messages"][1]["reasoning_content"] == "I need to call the weather tool."
 
@@ -70,17 +48,7 @@ def test_reasoning_content_is_noop_when_missing():
 
     human = HumanMessage(content="hello")
     ai = AIMessage(content="hi", additional_kwargs={})
-    base_payload = {
-        "messages": [
-            {"role": "user", "content": "hello"},
-            {"role": "assistant", "content": "hi"},
-        ]
-    }
-
-    with patch.object(type(model).__bases__[0], "_get_request_payload", return_value=base_payload):
-        with patch.object(model, "_convert_input") as mock_convert:
-            mock_convert.return_value = MagicMock(to_messages=lambda: [human, ai])
-            payload = model._get_request_payload([human, ai])
+    payload = model._get_request_payload([human, ai])
 
     assert "reasoning_content" not in payload["messages"][1]
 

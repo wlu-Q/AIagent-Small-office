@@ -933,12 +933,12 @@ task 等待员工返回；结合员工报告和随附的实际操作结果向用
     # Memory and current date are injected per-turn via DynamicContextMiddleware
     # as a <system-reminder> in the first HumanMessage, keeping this prompt
     # identical across users and sessions for maximum prefix-cache reuse.
-    from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE, employee_identity
-    from deerflow.office.presentation import FILE_DELIVERY_GUIDANCE
+    from deerflow.office.identity import RESPONSE_LANGUAGE_GUIDANCE
+    from deerflow.office.presentation import employee_briefing
 
     template = OFFICE_SYSTEM_PROMPT_TEMPLATE if office_employee_name is not None else SYSTEM_PROMPT_TEMPLATE
     prompt = template.format(
-        role_intro=(employee_identity(office_employee_name) + "\n\n" + FILE_DELIVERY_GUIDANCE if office_employee_name is not None
+        role_intro=(employee_briefing(office_employee_name) if office_employee_name is not None
                     else f"You are {agent_name or 'DeerFlow 2.0'}, an open-source super agent."),
         agent_name=agent_name or "DeerFlow 2.0",
         soul=(

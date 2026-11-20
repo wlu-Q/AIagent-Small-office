@@ -344,7 +344,12 @@ async def reset_mcp_tools_cache_endpoint(request: Request) -> McpCacheResetRespo
     and avoids relying on extensions_config.json mtime changes.
     """
     await require_admin_user(request, detail=_ADMIN_REQUIRED_DETAIL)
-    reset_mcp_tools_cache()
+    from deerflow.mcp.office_registry import registry
+    if registry.active:
+        import asyncio
+        await asyncio.gather(*(registry.apply(*update) for update in registry.read_services(refresh=True)))
+    else:
+        reset_mcp_tools_cache()
     return McpCacheResetResponse(
         success=True,
         message="MCP tools cache reset. Tools will reload on next use.",
@@ -393,58 +398,33 @@ async def update_mcp_configuration(request: Request, body: McpConfigUpdateReques
         await require_admin_user(request, detail=_ADMIN_REQUIRED_DETAIL)
         _validate_mcp_update_request(body)
 
-        # Get the current config path (or determine where to save it)
-        config_path = ExtensionsConfig.resolve_config_path()
-
-        if config_path is None:
-            config_path = project_root() / "extensions_config.json"
-            logger.info(f"No existing extensions config found. Creating new config at: {config_path}")
-
-        # Load current config to preserve skills
-        current_config = get_extensions_config()
-
-        # Load raw (un-resolved) JSON from disk to use as the merge source.
-        # This preserves $VAR placeholders in env values and top-level keys
-        # like mcpInterceptors that would otherwise be lost.
-        raw_servers: dict[str, dict] = {}
-        raw_other_keys: dict = {}
-        if config_path is not None and config_path.exists():
-            with open(config_path, encoding="utf-8") as f:
-                raw_data = json.load(f)
-            raw_servers = raw_data.get("mcpServers", {})
-            # Preserve any top-level keys beyond mcpServers/skills
-            for key, value in raw_data.items():
-                if key not in ("mcpServers", "skills"):
-                    raw_other_keys[key] = value
-
-        # Merge incoming server configs with raw on-disk secrets
-        merged_servers: dict[str, McpServerConfigResponse] = {}
-        for name, incoming in body.mcp_servers.items():
-            raw_server = raw_servers.get(name)
-            if raw_server is not None:
-                merged_servers[name] = _merge_preserving_secrets(
-                    incoming,
-                    McpServerConfigResponse(**raw_server),
-                )
-            else:
-                merged_servers[name] = incoming
-
-        # Build config data preserving all top-level keys from the original file
-        config_data = dict(raw_other_keys)
-        config_data["mcpServers"] = {name: server.model_dump() for name, server in merged_servers.items()}
-        config_data["skills"] = {name: {"enabled": skill.enabled} for name, skill in current_config.skills.items()}
-
-        # Write the configuration to file
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config_data, f, indent=2)
-
-        logger.info(f"MCP configuration updated and saved to: {config_path}")
-
-        # Reload the Gateway configuration and update the global cache. The
-        # agent runtime lives in Gateway, so this keeps API reads and tool
-        # execution aligned after extensions_config.json changes.
-        reloaded_config = reload_extensions_config()
-        reset_mcp_tools_cache()
+        from deerflow.config.extensions_store import edit_extensions, lock
+        from deerflow.mcp.office_settings import prepare_server
+        from deerflow.mcp.office_registry import registry, target
+        changed = {}
+        with lock:
+            with edit_extensions() as data:
+                existing = data.get("mcpServers", {})
+                replacement = {}
+                for name, incoming in body.mcp_servers.items():
+                    old = existing.get(name)
+                    if old and target(old) == target(incoming.model_dump()):
+                        incoming = _merge_preserving_secrets(incoming, McpServerConfigResponse(**old))
+                    elif old and any(v == _MASKED_VALUE for v in (*incoming.env.values(), *incoming.headers.values())):
+                        raise HTTPException(400, "Enter credentials for the new target")
+                    candidate = prepare_server(old, incoming.model_dump())
+                    if old and {k:v for k,v in old.items() if k != 'office_revision'} == {k:v for k,v in candidate.items() if k != 'office_revision'}:
+                        candidate = old
+                    replacement[name] = candidate
+                data["mcpServers"] = replacement
+                changed = {n:replacement.get(n) for n in set(existing) | set(replacement) if existing.get(n) != replacement.get(n)}
+            reloaded_config = reload_extensions_config()
+            updates = [(name, *registry.register(name, server)) for name, server in changed.items()] if registry.active else []
+        if registry.active:
+            import asyncio
+            await asyncio.gather(*(registry.apply(*update) for update in updates))
+        else:
+            reset_mcp_tools_cache()
         servers = {name: _mask_server_config(McpServerConfigResponse(**server.model_dump())) for name, server in reloaded_config.mcp_servers.items()}
         return McpConfigResponse(mcp_servers=servers)
 
@@ -453,3 +433,23 @@ async def update_mcp_configuration(request: Request, body: McpConfigUpdateReques
     except Exception as e:
         logger.error(f"Failed to update MCP configuration: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update MCP configuration: {str(e)}")
+
+
+from deerflow.mcp.office_settings import ServiceChange, ServiceConflict, change_service, list_services
+
+
+@router.get('/mcp/services')
+async def list_office_mcp_services(request: Request):
+    await require_admin_user(request, detail=_ADMIN_REQUIRED_DETAIL)
+    return list_services()
+
+
+@router.post('/mcp/services/{name}')
+async def change_office_mcp_service(name: str, body: ServiceChange, request: Request):
+    await require_admin_user(request, detail=_ADMIN_REQUIRED_DETAIL)
+    try:
+        return await change_service(name, body)
+    except ServiceConflict as error:
+        raise HTTPException(409, str(error)) from error
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error

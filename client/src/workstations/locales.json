@@ -1,0 +1,10 @@
+{
+  "zh-CN": {
+    "title": "的工作台", "emptyTitle": "空置工作台", "working": "工作中", "idle": "空闲", "disabled": "已停用", "unbound": "未绑定员工", "returning": "返回工位中",
+    "close": "关闭工作台", "hint": "Esc 关闭 · 靠近工位按 R 查看", "loading": "素材载入中", "artworkError": "工作台素材加载失败", "screenError": "工作动图加载失败", "retry": "重试", "scene": "像素工作台近景", "screen": "工作屏幕动图"
+  },
+  "en": {
+    "title": "'s workstation", "emptyTitle": "Available workstation", "working": "Working", "idle": "Idle", "disabled": "Disabled", "unbound": "Unassigned", "returning": "Returning to desk",
+    "close": "Close workstation", "hint": "Esc to close · Approach desk and press R", "loading": "Loading artwork", "artworkError": "Workstation artwork failed to load", "screenError": "Work animation failed to load", "retry": "Retry", "scene": "Pixel workstation close-up", "screen": "Animated work screen"
+  }
+}

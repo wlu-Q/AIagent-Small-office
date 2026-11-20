@@ -8,6 +8,7 @@ import OfficeChatPanel from './components/OfficeChatPanel'
 import OfficeEmployeePanel from './components/OfficeEmployeePanel'
 import WorkspacePanel from './components/WorkspacePanel'
 import OfficeSettingsDialog, { OfficeSettingsLauncher } from './components/OfficeSettingsDialog'
+import WorkstationPreview from './components/WorkstationPreview'
 
 const OfficeLibraryDialog = lazy(() => import('./components/office-library/OfficeLibraryDialog'))
 
@@ -31,6 +32,7 @@ export default function OfficeShell() {
       <OfficeEmployeePanel onOpenLibrary={() => { setLibrarySource(undefined); setLibraryMounted(true); setLibraryOpen(true) }} />
       <WorkspacePanel />
       <AppToast />
+      <WorkstationPreview />
       <OfficeSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {libraryMounted && <Suspense fallback={null}>
         <OfficeLibraryDialog source={librarySource} open={libraryOpen} onClose={() => setLibraryOpen(false)} />

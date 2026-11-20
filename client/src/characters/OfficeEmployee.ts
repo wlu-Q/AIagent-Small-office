@@ -56,6 +56,7 @@ export default class OfficeEmployee extends Player {
   private recentWanderTargets: Array<{ x: number; y: number }> = []
   private movingHome = false
   private reaction?: EmployeeReaction
+  private interactionsSuspended = false
 
   private refreshLanguage = () => {
     const key = this.workBubble.getData('localeKey')
@@ -145,7 +146,7 @@ export default class OfficeEmployee extends Player {
   applyProjection(projection: OfficeEmployeeSummary) {
     const previousState = this.projection.state
     this.projection = projection
-    this.reaction?.setEnabled(projection.state === 'idle')
+    this.reaction?.setEnabled(projection.state === 'idle' && !this.interactionsSuspended)
     this.playerName.setText(projection.displayName)
     this.setTint(projection.state === 'disabled' ? 0x94a3b8 : 0xffffff)
 
@@ -377,6 +378,18 @@ export default class OfficeEmployee extends Player {
     }
   }
 
+  setInteractionsSuspended(suspended: boolean) {
+    const wasReacting = this.reaction?.interaction.active
+    this.interactionsSuspended = suspended
+    this.reaction?.setEnabled(!suspended && this.projection.state === 'idle')
+    if (suspended && wasReacting) this.resumeAfterReaction()
+  }
+
+  isOperatingWorkstation() {
+    return this.projection.state === 'working' && !this.movingHome && this.waypoints.length === 0 &&
+      this.anims.currentAnim?.key.includes('_sit_') === true
+  }
+
   private isAtWorkstation() {
     return Math.hypot(this.workstation.x - this.x, this.workstation.y - this.y) <= 8
   }
@@ -409,15 +422,11 @@ export default class OfficeEmployee extends Player {
 
   private playWorkAnimation() {
     this.anims.timeScale = 1
-    // The six workstations in the left expansion are the lower row of the
-    // copied desk layout. Their screen is above the chair, so employees must
-    // use the back-facing sit_up pose. Keep this override scoped to workstation
-    // 01-06; the existing right-side seat behavior remains untouched.
     const isLeftExpansionWorkstation = /^workstation-0[1-6]$/.test(this.workstation.id)
     const direction = isLeftExpansionWorkstation ? 'up' : this.workstation.direction
     this.anims.play(`${this.playerTexture}_sit_${direction}`, true)
 
-    if (isLeftExpansionWorkstation) {
+    if (isLeftExpansionWorkstation || direction === 'down') {
       const [xShift, yShift, depthShift] = sittingShiftData[direction]
       this.setPosition(this.workstation.x + xShift, this.workstation.y + yShift)
       this.setDepth(this.workstation.y + depthShift)

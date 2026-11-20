@@ -108,6 +108,7 @@ def _local_uri_to_virtual_path(
     thread_id: str,
     user_id: str,
     source_base_dir: Path | None = None,
+    output_prefix: str | None = None,
 ) -> str | None:
     """Translate a local file reference into its ``/mnt/user-data/...`` virtual path.
 
@@ -135,7 +136,7 @@ def _local_uri_to_virtual_path(
         return None
 
     try:
-        user_data_root = get_paths().sandbox_user_data_dir(thread_id, user_id=user_id).resolve()
+        user_data_root = (source_base_dir if output_prefix else get_paths().sandbox_user_data_dir(thread_id, user_id=user_id)).resolve()
     except OSError:
         return None
 
@@ -147,7 +148,7 @@ def _local_uri_to_virtual_path(
         logger.debug("MCP path rewrite skipped outside user-data tree: %s", real)
         return None
 
-    virtual_path = f"{VIRTUAL_PATH_PREFIX}/{relative.as_posix()}"
+    virtual_path = f"{output_prefix or VIRTUAL_PATH_PREFIX}/{relative.as_posix()}"
     logger.debug("MCP path rewrite: %s -> %s", real, virtual_path)
     return virtual_path
 
@@ -225,6 +226,7 @@ def _rewrite_unique_bare_filenames(
     thread_id: str,
     user_id: str,
     source_base_dir: Path | None = None,
+    output_prefix: str | None = None,
 ) -> str:
     """Rewrite bare filenames only when this call produced a unique match.
 
@@ -240,6 +242,7 @@ def _rewrite_unique_bare_filenames(
             thread_id=thread_id,
             user_id=user_id,
             source_base_dir=source_base_dir,
+            output_prefix=output_prefix,
         )
         if virtual_path is None:
             continue
@@ -271,6 +274,7 @@ def _rewrite_local_paths_in_text(
     thread_id: str,
     user_id: str,
     source_base_dir: Path | None = None,
+    output_prefix: str | None = None,
     changed_files: Iterable[Path] | None = None,
 ) -> str:
     """Best-effort rewrite of local file references found in free text.
@@ -298,6 +302,7 @@ def _rewrite_local_paths_in_text(
                 thread_id=thread_id,
                 user_id=user_id,
                 source_base_dir=source_base_dir,
+                output_prefix=output_prefix,
             )
         rewritten = translated_by_source[stripped]
         if rewritten is None:
@@ -313,6 +318,7 @@ def _rewrite_local_paths_in_text(
         thread_id=thread_id,
         user_id=user_id,
         source_base_dir=source_base_dir,
+        output_prefix=output_prefix,
     )
 
 
@@ -340,6 +346,7 @@ def _convert_call_tool_result(
     thread_id: str | None = None,
     user_id: str | None = None,
     source_base_dir: Path | None = None,
+    output_prefix: str | None = None,
     changed_files: Iterable[Path] | None = None,
 ) -> Any:
     """Convert an MCP CallToolResult to the LangChain ``content_and_artifact`` format.
@@ -378,7 +385,7 @@ def _convert_call_tool_result(
     def _resolve_link_url(uri: str) -> str:
         if thread_id is None or user_id is None:
             return uri
-        rewritten = _local_uri_to_virtual_path(uri, thread_id=thread_id, user_id=user_id, source_base_dir=source_base_dir)
+        rewritten = _local_uri_to_virtual_path(uri, thread_id=thread_id, user_id=user_id, source_base_dir=source_base_dir, output_prefix=output_prefix)
         return rewritten if rewritten is not None else uri
 
     def _resolve_text(text: str) -> str:
@@ -392,6 +399,7 @@ def _convert_call_tool_result(
             thread_id=thread_id,
             user_id=user_id,
             source_base_dir=source_base_dir,
+            output_prefix=output_prefix,
             changed_files=changed_files,
         )
 
@@ -447,6 +455,7 @@ def _make_session_pool_tool(
     connection: dict[str, Any],
     tool_interceptors: list[Any] | None = None,
     tool_call_timeout: float | None = None,
+    pool_name: str | None = None,
 ) -> BaseTool:
     """Wrap an MCP tool so it reuses a persistent session from the pool.
 
@@ -476,6 +485,12 @@ def _make_session_pool_tool(
         # per-(user_id, thread_id), so a thread_id alone could otherwise let two
         # users with a colliding thread_id share one stateful MCP session.
         scope_key = f"{user_id}:{thread_id}"
+        context = runtime.context if runtime is not None and runtime.context else {}
+        output_prefix = None
+        if context.get('office_work') and thread_id == "default":
+            raise ValueError('Office MCP requires a conversation thread')
+        if scope := context.get('office_mcp_scope'):
+            scope_key = f'{user_id}:delegate:{scope}'
         session_connection = dict(connection)
         # cwd/temp pinning and the workspace snapshot only matter for stdio
         # servers, which run as local subprocesses writing to a real filesystem.
@@ -490,7 +505,18 @@ def _make_session_pool_tool(
             # Bundle the synchronous filesystem prep (dir creation, temp-dir
             # setup, pre-call snapshot) and run it off the event loop — the
             # snapshot walks the whole workspace and would otherwise block.
-            source_base_dir, tmp_dir, before_files = await asyncio.to_thread(_prepare_stdio_workspace, paths, thread_id=thread_id, user_id=user_id)
+            if context.get('office_work'):
+                from deerflow.office.execution_workspace import resolve_thread_data
+                data = resolve_thread_data(context, runtime.state.get('thread_data'), paths=paths) or {}
+                outputs = Path(data['outputs_path']) if data.get('outputs_path') else paths.sandbox_outputs_dir(thread_id, user_id=user_id)
+                suffix = Path('mcp', scope or 'conversation', server_name)
+                source_base_dir = outputs / suffix
+                source_base_dir.mkdir(parents=True, exist_ok=True)
+                before_files = await asyncio.to_thread(_snapshot_workspace_files, source_base_dir)
+                prefix = f"/mnt/office-workspaces/{data['office_workspace_id']}" if data.get('office_workspace_id') else VIRTUAL_PATH_PREFIX
+                output_prefix = f'{prefix}/outputs/{suffix.as_posix()}'
+            else:
+                source_base_dir, tmp_dir, before_files = await asyncio.to_thread(_prepare_stdio_workspace, paths, thread_id=thread_id, user_id=user_id)
             # Stdio MCP servers resolve relative output links against their
             # process cwd. Keep that cwd inside the thread's mounted user-data
             # tree so files produced by tools like Playwright land where the
@@ -504,12 +530,13 @@ def _make_session_pool_tool(
             # many CLIs) then write inside user-data instead of an unreachable
             # host path — the tool-agnostic counterpart to fixing the cwd. Merge
             # rather than replace any operator-provided env.
-            session_env = dict(session_connection.get("env") or {})
-            session_env.setdefault("TMPDIR", str(tmp_dir))
-            session_env.setdefault("TMP", str(tmp_dir))
-            session_env.setdefault("TEMP", str(tmp_dir))
-            session_connection["env"] = session_env
-        session = await pool.get_session(server_name, scope_key, session_connection)
+            if not context.get('office_work'):
+                session_env = dict(session_connection.get("env") or {})
+                session_env.setdefault("TMPDIR", str(tmp_dir))
+                session_env.setdefault("TMP", str(tmp_dir))
+                session_env.setdefault("TEMP", str(tmp_dir))
+                session_connection["env"] = session_env
+        session = await pool.get_session(pool_name or server_name, scope_key, session_connection)
 
         # Build common call_tool kwargs once — only add keys when needed so
         # existing call-sites that assert on exact arguments are not affected.
@@ -572,6 +599,7 @@ def _make_session_pool_tool(
             thread_id=thread_id,
             user_id=user_id,
             source_base_dir=process_cwd,
+            output_prefix=output_prefix,
             changed_files=changed_files,
         )
 
@@ -585,7 +613,7 @@ def _make_session_pool_tool(
     )
 
 
-async def get_mcp_tools() -> list[BaseTool]:
+async def get_mcp_tools(extensions_config: ExtensionsConfig | None = None, *, strict=False) -> list[BaseTool]:
     """Get all tools from enabled MCP servers.
 
     Tools using stdio transport are wrapped with persistent-session logic so
@@ -599,6 +627,8 @@ async def get_mcp_tools() -> list[BaseTool]:
     try:
         from langchain_mcp_adapters.client import MultiServerMCPClient
     except ImportError:
+        if strict:
+            raise
         logger.warning("langchain-mcp-adapters not installed. Install it to enable MCP tools: pip install langchain-mcp-adapters")
         return []
 
@@ -606,8 +636,12 @@ async def get_mcp_tools() -> list[BaseTool]:
     # to always read the latest configuration from disk. This ensures that changes
     # made through the Gateway API (which runs in a separate process) are immediately
     # reflected when initializing MCP tools.
-    extensions_config = ExtensionsConfig.from_file()
-    servers_config = build_servers_config(extensions_config)
+    extensions_config = extensions_config or ExtensionsConfig.from_file()
+    if strict:
+        from deerflow.mcp.client import build_server_params
+        servers_config = {n: build_server_params(n, c) for n, c in extensions_config.get_enabled_mcp_servers().items()}
+    else:
+        servers_config = build_servers_config(extensions_config)
 
     if not servers_config:
         logger.info("No enabled MCP servers configured")
@@ -666,6 +700,8 @@ async def get_mcp_tools() -> list[BaseTool]:
             try:
                 return await client.get_tools(server_name=server_name)
             except Exception as e:
+                if strict:
+                    raise
                 logger.warning(
                     f"Skipping MCP server '{server_name}' after tool discovery failed: {e}",
                     exc_info=True,
@@ -711,7 +747,12 @@ async def get_mcp_tools() -> list[BaseTool]:
                     tag_mcp_routing(tool, routing)
                 if tool.name.startswith(f"{source_name}_") and transport == "stdio":
                     _timeout = server_cfg.tool_call_timeout if server_cfg else None
-                    wrapped_tools.append(_make_session_pool_tool(tool, source_name, servers_config[source_name], tool_interceptors, tool_call_timeout=_timeout))
+                    revision = getattr(server_cfg, 'office_revision', None)
+                    pool_name = f'{source_name}:{revision}' if revision else source_name
+                    wrapped_tools.append(_make_session_pool_tool(
+                        tool, source_name, servers_config[source_name], tool_interceptors,
+                        tool_call_timeout=_timeout, pool_name=pool_name,
+                    ))
                 else:
                     if transport != "stdio" and server_cfg and server_cfg.tool_call_timeout is not None:
                         logger.warning(
@@ -729,5 +770,7 @@ async def get_mcp_tools() -> list[BaseTool]:
         return wrapped_tools
 
     except Exception as e:
+        if strict:
+            raise
         logger.error(f"Failed to load MCP tools: {e}", exc_info=True)
         return []

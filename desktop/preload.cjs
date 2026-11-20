@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('officeDesktopBridge', {
   listExecutionApprovals: () => ipcRenderer.invoke('office-desktop:listExecutionApprovals'),
   decideExecutionApproval: (id, hash, decision) => ipcRenderer.invoke('office-desktop:decideExecutionApproval', id, hash, decision),
+  listMcpServices: () => ipcRenderer.invoke('office-desktop:listMcpServices'),
+  changeMcpService: (name, change) => ipcRenderer.invoke('office-desktop:changeMcpService', name, change),
   getOfficeEmployeeTools: (id) => ipcRenderer.invoke('office-desktop:getOfficeEmployeeTools', id),
   saveOfficeEmployeeTools: (id, payload) => ipcRenderer.invoke('office-desktop:saveOfficeEmployeeTools', id, payload),
   officeLibrary: (payload) => ipcRenderer.invoke('office-desktop:library', payload),
@@ -31,6 +33,9 @@ contextBridge.exposeInMainWorld('officeDesktopBridge', {
     ipcRenderer.invoke('office-desktop:saveOfficeSettings', payload)
   ),
   getUserMemory: () => ipcRenderer.invoke('office-desktop:getUserMemory'),
+  getEmployeeMemory: (employeeId) => ipcRenderer.invoke('office-desktop:getEmployeeMemory', employeeId),
+  listWorkLogDays: (employeeId, before) => ipcRenderer.invoke('office-desktop:listWorkLogDays', employeeId, before),
+  getWorkLogDay: (employeeId, day) => ipcRenderer.invoke('office-desktop:getWorkLogDay', employeeId, day),
   createMemoryFact: (payload) => ipcRenderer.invoke('office-desktop:createMemoryFact', payload),
   updateMemoryFact: (factId, payload) => (
     ipcRenderer.invoke('office-desktop:updateMemoryFact', factId, payload)

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +12,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 
 from app.gateway.deps import (
+    get_run_event_store,
     get_run_manager,
+    get_run_store,
 )
+from app.gateway.routers.memory import MemoryResponse
 from app.gateway.services import start_run
+from deerflow.agents.memory import get_memory_manager
 from deerflow.office.employees import OfficeEmployeeService
 from deerflow.office.group_messages import GroupMessage, GroupMessageStore
 from deerflow.office.message_pipeline import OfficeMessagePipeline
@@ -23,6 +28,7 @@ from deerflow.office.projects import OfficeProjectService
 from deerflow.office.run_gate import EmployeeRunGate, QueuedOfficeRun
 from deerflow.office.run_view import OfficeRunView
 from deerflow.office.templates import list_employee_templates
+from deerflow.office.work_logs import EmployeeWorkLogs
 from deerflow.runtime.runs.manager import CancelOutcome
 from deerflow.runtime.user_context import get_effective_user_id
 
@@ -685,6 +691,37 @@ def get_employee(
         return service.get_employee_detail(employee_id)
     except Exception as error:
         _raise_http_error(error)
+
+
+@router.get("/employees/{employee_id}/memory", response_model=MemoryResponse)
+def get_employee_memory(
+    employee_id: str,
+    service: OfficeEmployeeService = Depends(get_office_employee_service),
+) -> MemoryResponse:
+    try:
+        employee = service.get_employee_summary(employee_id)
+        return MemoryResponse(**get_memory_manager().get_memory(agent_name=employee["id"], user_id=service.user_id))
+    except Exception as error:
+        _raise_http_error(error)
+
+
+def get_employee_work_logs(employee_id: str, service=Depends(get_office_employee_service),
+                           runs=Depends(get_run_store), events=Depends(get_run_event_store)):
+    try:
+        return EmployeeWorkLogs(service, runs, events, employee_id)
+    except Exception as error:
+        _raise_http_error(error)
+
+
+@router.get("/employees/{employee_id}/work-logs")
+async def list_work_log_days(before: date | None = None, limit: int = Query(default=30, ge=1, le=100),
+                             logs=Depends(get_employee_work_logs)):
+    return await logs.days(before, limit)
+
+
+@router.get("/employees/{employee_id}/work-logs/{day}")
+async def get_work_log_day(day: date, logs=Depends(get_employee_work_logs)):
+    return await logs.day(day)
 
 
 @router.put("/employees/{employee_id}/personal-info")

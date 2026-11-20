@@ -5,6 +5,7 @@ import { t, useLocale } from '../i18n'
 import { useEffect, useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
 import OfficeModelSettings from './OfficeModelSettings'
+import McpSettings from './McpSettings'
 import LanguageSelect from './LanguageSelect'
 import styled from '@emotion/styled'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
@@ -61,7 +62,9 @@ const Panel = styled.section`
   z-index: 1;
   width: min(820px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
-  overflow: auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.96);
   border-radius: 24px;
   color: #172b42;
@@ -116,6 +119,11 @@ const IconButton = styled.button`
     color: #2d8b85;
     background: #edf5f4;
   }
+`
+
+const ScrollArea = styled.div`
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 `
 
 const Body = styled.div`
@@ -331,44 +339,49 @@ export default function OfficeSettingsDialog({ open, onClose }: Props) {
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
         </Header>
-        <Body>
-          <LanguageSelect />
-          <Section>
-            <SectionTitle>{t('ui.office_information')}</SectionTitle>
-            <Field>
-              {t('ui.office_name')}<Input value={companyName} onChange={(event) => setCompanyName(event.target.value)} disabled={loading || saving} />
-            </Field>
-          </Section>
+        <ScrollArea>
+          <Body>
+            <LanguageSelect />
+            <Section>
+              <SectionTitle>{t('ui.office_information')}</SectionTitle>
+              <Field>
+                {t('ui.office_name')}<Input value={companyName} onChange={(event) => setCompanyName(event.target.value)} disabled={loading || saving} />
+              </Field>
+            </Section>
 
-          <Section>
-            <SectionTitle>{t('ui.model_settings')}</SectionTitle>
-            <OfficeModelSettings />
-          </Section>
+            <Section>
+              <SectionTitle>{t('ui.model_settings')}</SectionTitle>
+              <OfficeModelSettings />
+            </Section>
 
-          <Section>
-            <SectionTitle>{t('ui.personalization')}</SectionTitle>
-            <Field>
-              {t('ui.personal_preferences')}<TextArea value={personalization} onChange={(event) => setPersonalization(event.target.value)} disabled={loading || saving} placeholder={t('ui.for_example_keep_answers_concise_and_lead_with_the_conclusion_do_not')} />
-            </Field>
-          </Section>
-          <Section>
-            <SectionTitle>{t('ui.powershell_permissions')}</SectionTitle>
-            <p style={{ color: '#6a7e88', fontSize: 12, lineHeight: 1.7 }}>{t('ui.applies_to_employees_with_terminal_access_pending_requests_still_need_individual_approval')}</p>
-            <div role="radiogroup" aria-label={t('ui.terminal_permissions')} style={{ display: 'flex', gap: 12 }}>
-              {([['approval', t('ui.request_approval')], ['full_access', t('ui.full_access')]] as const).map(([value, label]) => (
-                <label key={value} style={{ flex: 1, padding: 14, borderRadius: 12, border: `1px solid ${terminalMode === value ? '#5d9994' : '#dce6e8'}`, background: terminalMode === value ? '#edf6f3' : '#fff', fontSize: 14 }}>
-                  <input type="radio" name="terminal-mode" value={value} checked={terminalMode === value} disabled={loading || saving}
-                    onChange={() => value === 'full_access' ? setShowWarning(true) : setTerminalMode('approval')} /> {label}
-                </label>
-              ))}
-            </div>
-          </Section>
-        </Body>
-        {error && <p role="alert" style={{ color: "#b42318", padding: "0 30px" }}>{error}</p>}
-        <Footer>
-          <Button type="button" onClick={onClose} disabled={saving}>{t('ui.cancel')}</Button>
-          <Button type="button" $primary onClick={() => void save()} disabled={loading || saving}>{saving ? t('ui.saving_settings') : t('ui.save_settings')}</Button>
-        </Footer>
+            <Section>
+              <SectionTitle>{t('ui.personalization')}</SectionTitle>
+              <Field>
+                {t('ui.personal_preferences')}<TextArea value={personalization} onChange={(event) => setPersonalization(event.target.value)} disabled={loading || saving} placeholder={t('ui.for_example_keep_answers_concise_and_lead_with_the_conclusion_do_not')} />
+              </Field>
+            </Section>
+            <Section>
+              <McpSettings />
+            </Section>
+            <Section>
+              <SectionTitle>{t('ui.powershell_permissions')}</SectionTitle>
+              <p style={{ color: '#6a7e88', fontSize: 12, lineHeight: 1.7 }}>{t('ui.applies_to_employees_with_terminal_access_pending_requests_still_need_individual_approval')}</p>
+              <div role="radiogroup" aria-label={t('ui.terminal_permissions')} style={{ display: 'flex', gap: 12 }}>
+                {([['approval', t('ui.request_approval')], ['full_access', t('ui.full_access')]] as const).map(([value, label]) => (
+                  <label key={value} style={{ flex: 1, padding: 14, borderRadius: 12, border: `1px solid ${terminalMode === value ? '#5d9994' : '#dce6e8'}`, background: terminalMode === value ? '#edf6f3' : '#fff', fontSize: 14 }}>
+                    <input type="radio" name="terminal-mode" value={value} checked={terminalMode === value} disabled={loading || saving}
+                      onChange={() => value === 'full_access' ? setShowWarning(true) : setTerminalMode('approval')} /> {label}
+                  </label>
+                ))}
+              </div>
+            </Section>
+          </Body>
+          {error && <p role="alert" style={{ color: "#b42318", padding: "0 30px" }}>{error}</p>}
+          <Footer>
+            <Button type="button" onClick={onClose} disabled={saving}>{t('ui.cancel')}</Button>
+            <Button type="button" $primary onClick={() => void save()} disabled={loading || saving}>{saving ? t('ui.saving_settings') : t('ui.save_settings')}</Button>
+          </Footer>
+        </ScrollArea>
       </Panel>
       <Dialog open={showWarning} onClose={() => setShowWarning(false)} onMouseDown={event => event.stopPropagation()} sx={{ zIndex: 25000 }} maxWidth="xs" fullWidth
         aria-labelledby="full-access-title" PaperProps={{ sx: { borderRadius: 4, background: '#fffdf8', color: '#493b30' } }}>

@@ -245,7 +245,7 @@ async function run() {
     await click(`[data-employee-model-option="${newId}"]`)
     assert.equal((await api('/api/office/employees/pm')).employee.modelProfileId, 'office-default', 'draft is not a binding')
     await click('[data-save-employee]')
-    await waitFor(`document.querySelector('[data-employee-edit-status]')?.textContent === '已保存。'`, 'employee model saved through real Gateway')
+    await waitFor(`document.querySelector('.MuiSnackbar-root [role=alert]')?.textContent === '员工配置保存成功' && document.querySelector('[data-save-employee]')?.disabled === false`, 'employee model saved through real Gateway')
     assert.equal((await api('/api/office/employees/pm')).employee.modelProfileId, newId)
     await click('[data-close-employee-editor]')
     await send('E2E_ASK 请确认范围，接着我要切换模型')
@@ -281,6 +281,45 @@ async function run() {
     await reloadChat()
     await click('[aria-label="打开办公室设置"]')
     await waitFor(`document.querySelector('[data-office-model-default="${newId}"]')?.textContent === '当前默认'`, 'model persistence after renderer reload')
+    await click('[data-office-model-add]')
+    await waitFor("document.querySelector('[data-office-provider=qwen]')", 'Qwen provider')
+    await click('[data-office-provider=qwen]')
+    await input('modelName', 'qwen-plus')
+    await input('baseUrl', endpoint.origin + '/test-model/v1')
+    await input('apiKey', 'fixture-key')
+    await chooseThinking('enabled')
+    await click('[data-office-model-submit]')
+    await waitFor("!document.querySelector('[data-office-add-model-dialog]')", 'Qwen tool roundtrip and save', 95000)
+    const qwen = (await api('/api/office/models')).models.find(model => model.provider === 'qwen')
+    assert.equal(qwen.modelName, 'qwen-plus')
+    assert.equal(qwen.thinkingLevel, 'enabled')
+    assert.equal(qwen.isDefault, false)
+    await click('[data-office-model-edit="' + qwen.id + '"]')
+    await waitFor("document.querySelector('input[name=baseUrl]')?.value === " + JSON.stringify(endpoint.origin + '/test-model/v1'), 'Qwen edit details')
+    await chooseThinking('default')
+    await click('[data-office-model-submit]')
+    await waitFor("!document.querySelector('[data-office-add-model-dialog]')", 'Qwen default mode saved')
+    const savedQwen = await api('/api/office/models/' + qwen.id)
+    assert.equal(savedQwen.thinkingLevel, 'default')
+    assert.equal(savedQwen.apiKeyConfigured, true)
+    await api('/api/office/employees/writer/personal-info', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modelProfileId: qwen.id }) })
+    const dispatched = await api('/api/office/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId: require('node:crypto').randomUUID(), conversationKind: 'private', targetEmployeeId: 'writer',
+        text: 'E2E_EMPLOYEE 使用新的模型介绍产品' }) })
+    const runPath = '/api/office/employees/writer/runs/' + dispatched.dispatches[0].runId
+    let employeeRun = await api(runPath)
+    const deadline = Date.now() + 30000
+    while (['pending', 'running', 'queued'].includes(employeeRun.status) && Date.now() < deadline) {
+      await sleep(150)
+      employeeRun = await api(runPath)
+    }
+    assert.equal(employeeRun.status, 'success')
+    assert.match(employeeRun.lastAiMessage, /员工产品介绍/)
+    assert.equal(employeeRun.modelProfileId, qwen.id)
+    assert.equal(employeeRun.runtimeModelId, 'qwen-plus')
+    const qwenRequests = (await api('/test-model/requests')).filter(r => r.model === 'qwen-plus')
+    assert.ok(qwenRequests.some(r => r.tools.includes('read_file')), JSON.stringify(qwenRequests))
     console.log('LIVE_MODEL_SETTINGS_OK: page model save; creation snapshots default; existing binding fixed; busy rejected; ask/FIFO/delegation/reload')
     return
   }

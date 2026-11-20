@@ -9,11 +9,19 @@ export const DAILY_FOOT_Y = 112
 export const DAILY_LOGICAL_WIDTH = 64
 export const DAILY_LOGICAL_HEIGHT = 96
 export const DAILY_SCALE = 0.5
+export const DAILY_FRONT_IDLE_FRAME = 18
+
+export const dailyCharacterImage = (texture: string) => `assets/character/${texture}.png`
 
 export function dailySourceFrame(frame: number) {
   if (frame < 24) return Math.floor(frame / 6) * 8
   if (frame < 48) return Math.floor((frame - 24) / 6) * 8 + 1 + (frame - 24) % 6
   return [31, 23, 7, 15][frame - 48]
+}
+
+export function dailyFrameOffset(frame: number) {
+  const source = dailySourceFrame(frame)
+  return { x: source % 8 * DAILY_FRAME_WIDTH, y: Math.floor(source / 8) * DAILY_FRAME_HEIGHT }
 }
 
 export function dailyWalkFrames(texture: string, direction: string, start: number) {

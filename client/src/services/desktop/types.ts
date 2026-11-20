@@ -27,6 +27,9 @@ import type {
   OfficeBootstrapStatus,
   OfficeMemoryFactInput,
   OfficeMemoryResponse,
+  EmployeeMemoryResponse,
+  WorkLogDays,
+  WorkLogDay,
   OfficeSettingsInput,
   OfficeModelCatalogue,
   OfficeAddModelInput,
@@ -75,6 +78,8 @@ export type DesktopBridgeEvent =
 export type DesktopBridgeApi = {
   listExecutionApprovals: () => Promise<{ items: import('../office/officeApi').OfficeExecutionApproval[] }>
   decideExecutionApproval: (id: string, hash: string, decision: 'approve' | 'reject') => Promise<unknown>
+  listMcpServices: () => Promise<import('../office/mcp').McpRow[]>
+  changeMcpService: (name: string, change: import('../office/mcp').McpChange) => Promise<import('../office/mcp').McpRow[]>
   getOfficeEmployeeTools: (employeeId: string) => Promise<import('../office/officeApi').OfficeEmployeeTools>
   saveOfficeEmployeeTools: (employeeId: string, payload: { tools: string[]; expectedRevision: string }) => Promise<import('../office/officeApi').OfficeEmployeeTools>
   officeLibrary: (payload: LibraryRequest) => Promise<unknown>
@@ -101,6 +106,9 @@ export type DesktopBridgeApi = {
   setLanguage: (language: 'en' | 'zh-CN') => Promise<'en' | 'zh-CN'>
   saveOfficeSettings: (payload: OfficeSettingsInput) => Promise<OfficeBootstrapStatus>
   getUserMemory: () => Promise<OfficeMemoryResponse>
+  getEmployeeMemory: (employeeId: string) => Promise<EmployeeMemoryResponse>
+  listWorkLogDays: (employeeId: string, before?: string) => Promise<WorkLogDays>
+  getWorkLogDay: (employeeId: string, day: string) => Promise<WorkLogDay>
   createMemoryFact: (payload: OfficeMemoryFactInput) => Promise<OfficeMemoryResponse>
   updateMemoryFact: (factId: string, payload: Partial<OfficeMemoryFactInput>) => Promise<OfficeMemoryResponse>
   deleteMemoryFact: (factId: string) => Promise<OfficeMemoryResponse>

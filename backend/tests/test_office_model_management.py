@@ -127,7 +127,7 @@ def test_model_routes_and_validation(service):
     from app.gateway.routers.office import router
     app = FastAPI(); app.include_router(router); app.state.office_bootstrap_service = service
     client = TestClient(app)
-    assert len(client.get('/api/office/models').json()['providers']) == 7
+    assert {p['id'] for p in client.get('/api/office/models').json()['providers']} == {p[0] for p in PROVIDERS}
     draft = payload('glm')
     result = client.post('/api/office/models', json=draft)
     assert result.status_code == 200
@@ -169,14 +169,21 @@ async def test_terminal_mode_requires_warning_confirmation_without_touching_mode
 
 @pytest.mark.parametrize(('provider', 'level'), [(p, level) for p, levels in THINKING_LEVELS.items() for level in levels])
 @pytest.mark.asyncio
-async def test_seven_real_adapters_serialize_tool_roundtrip_and_preserve_reasoning(provider, level, monkeypatch):
+async def test_real_adapters_serialize_tool_roundtrip_and_preserve_reasoning(provider, level, monkeypatch):
     """Actual LangChain clients, controlled HTTP responses (no vendor credentials)."""
     import deerflow.office.model_management as management
     from deerflow.models.factory import create_chat_model
     requests = []
     async def respond(request):
         body = json.loads(request.content); requests.append(body)
-        if provider == 'mimo':
+        if provider == 'qwen':
+            assert request.url == 'https://example.test/v1/chat/completions'
+            assert 'reasoning_effort' not in body and 'thinking' not in body
+            if level == 'default':
+                assert 'enable_thinking' not in body
+            else:
+                assert body['enable_thinking'] is (level == 'enabled')
+        elif provider == 'mimo':
             assert body['thinking'] == {'type': level}
             assert 'reasoning_effort' not in body
         else:
@@ -187,14 +194,14 @@ async def test_seven_real_adapters_serialize_tool_roundtrip_and_preserve_reasoni
         if len(requests) == 1:
             message = {'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'call-probe', 'type': 'function',
                 'function': {'name': 'office_connection_probe', 'arguments': '{}'}}]}
-            if provider != 'openai': message['reasoning_content'] = 'verify before answering'
+            if provider != 'openai' and (provider, level) != ('qwen', 'disabled'): message['reasoning_content'] = 'verify before answering'
             if provider == 'minimax':
                 message['reasoning_details'] = [{'type': 'reasoning.text', 'text': 'verify before answering'}]
             finish = 'tool_calls'
         else:
             assert body['messages'][-1]['role'] == 'tool'
             assert body['messages'][-1]['tool_call_id'] == 'call-probe'
-            if provider in {'deepseek', 'kimi', 'glm', 'doubao', 'mimo', 'minimax'}:
+            if provider != 'openai' and (provider, level) != ('qwen', 'disabled'):
                 assert body['messages'][-2]['reasoning_content'] == 'verify before answering'
             message = {'role': 'assistant', 'content': body['messages'][-1]['content']}
             finish = 'stop'
@@ -231,6 +238,22 @@ async def test_thinking_edit_is_verified_persisted_and_failed_probe_keeps_previo
         with pytest.raises(ValueError, match='思考配置'):
             await service.models.update(profile_id, {**draft, 'thinkingLevel': invalid})
     assert service.config_path.read_bytes() == before
+
+
+@pytest.mark.asyncio
+async def test_qwen_edit_preserves_key_and_restores_model_default(service):
+    added = await service.models.add({**payload('qwen'), 'modelName': 'qwen-plus'})
+    row = added['models'][-1]
+    assert (row['provider'], row['thinkingLevel']) == ('qwen', 'default')
+    for level in ('enabled', 'disabled', 'default'):
+        edited = await service.models.update(row['id'], {
+            'modelName': 'qwen-plus', 'baseUrl': 'https://example.test/v1',
+            'apiKey': '', 'supportsVision': False, 'thinkingLevel': level})
+        assert edited['models'][-1]['thinkingLevel'] == level
+    saved = yaml.safe_load(service.config_path.read_text())['models'][-1]
+    assert saved['api_key'] == 'test-key'
+    assert 'enable_thinking' not in json.dumps(saved)
+    assert 'test-key' not in json.dumps(await service.models.detail(row['id']))
 
 
 def test_vendor_options_and_legacy_profile_remain_explicit(service):

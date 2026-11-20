@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { additionalCharacterTextures } from '../characters/additionalCharacterTextures'
-import { DAILY_FRAME_WIDTH, DAILY_FRAME_HEIGHT, DAILY_FOOT_Y, DAILY_LOGICAL_WIDTH, DAILY_LOGICAL_HEIGHT, dailySourceFrame } from '../characters/dailyCharacterAssets'
+import { DAILY_FRAME_WIDTH, DAILY_FRAME_HEIGHT, DAILY_FOOT_Y, DAILY_LOGICAL_WIDTH, DAILY_LOGICAL_HEIGHT, dailyCharacterImage, dailyFrameOffset } from '../characters/dailyCharacterAssets'
 import { loadEmployeeReactionAssets } from '../anims/EmployeeReactionAnims'
 import { loadEmployeePickupAssets } from '../anims/EmployeePickupAnims'
 
@@ -76,7 +76,7 @@ export default class Bootstrap extends Phaser.Scene {
       frameHeight: 48,
     })
     additionalCharacterTextures.forEach((texture) => {
-      this.load.image(texture, `assets/character/${texture}.png`)
+      this.load.image(texture, dailyCharacterImage(texture))
     })
     loadEmployeeReactionAssets(this)
     loadEmployeePickupAssets(this)
@@ -84,9 +84,9 @@ export default class Bootstrap extends Phaser.Scene {
     this.load.on('complete', () => {
       additionalCharacterTextures.forEach(texture => {
         for (let index = 0; index < 52; index++) {
-          const sourceFrame = dailySourceFrame(index)
+          const offset = dailyFrameOffset(index)
           this.textures.get(texture).add(index, 0,
-            sourceFrame % 8 * DAILY_FRAME_WIDTH, Math.floor(sourceFrame / 8) * DAILY_FRAME_HEIGHT,
+            offset.x, offset.y,
             DAILY_FRAME_WIDTH, DAILY_FRAME_HEIGHT,
           ).setTrim(
             DAILY_LOGICAL_WIDTH, DAILY_LOGICAL_HEIGHT,

@@ -14,6 +14,8 @@ import {
   type OfficeSkillSummary,
 } from '../services/office/officeApi'
 import { randomEmployeeName } from '../utils/randomEmployeeName'
+import { additionalCharacterTextures } from '../characters/additionalCharacterTextures'
+import { DAILY_FRAME_HEIGHT, DAILY_FRAME_WIDTH, DAILY_FRONT_IDLE_FRAME, dailyCharacterImage, dailyFrameOffset } from '../characters/dailyCharacterAssets'
 import OfficeEmployeeEditor from './OfficeEmployeeEditor'
 
 const FloatingActions = styled.div`
@@ -574,6 +576,24 @@ const FormField = styled.label`
   }
 `
 
+const frontOffset = dailyFrameOffset(DAILY_FRONT_IDLE_FRAME)
+const AppearancePreview = styled.div`
+  display: grid;
+  place-items: center;
+  min-height: ${DAILY_FRAME_HEIGHT + 24}px;
+  border: 1px solid #dbe4ee;
+  border-radius: 10px;
+  background: #f1f5f9;
+
+  > span {
+    width: ${DAILY_FRAME_WIDTH}px;
+    height: ${DAILY_FRAME_HEIGHT}px;
+    background-position: ${-frontOffset.x}px ${-frontOffset.y}px;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+  }
+`
+
 const DialogFooter = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -616,8 +636,6 @@ const FormMessage = styled.p`
   font-size: 12px;
 `
 
-const DEFAULT_EMPLOYEE_AVATAR = 'adam'
-
 function createEmployeeId(templateId: string) {
   return templateId + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7)
 }
@@ -639,6 +657,7 @@ export default function OfficeEmployeePanel({ onOpenLibrary }: { onOpenLibrary: 
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [templateId, setTemplateId] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [avatar, setAvatar] = useState<string>(additionalCharacterTextures[0])
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -705,6 +724,7 @@ export default function OfficeEmployeePanel({ onOpenLibrary }: { onOpenLibrary: 
     if (!selectedTemplate) return
     setError('')
     setDisplayName(randomEmployeeName())
+    setAvatar(additionalCharacterTextures[Math.floor(Math.random() * additionalCharacterTextures.length)])
     setTemplateId(selectedTemplate.templateId)
     setCreateOpen(true)
   }
@@ -717,7 +737,7 @@ export default function OfficeEmployeePanel({ onOpenLibrary }: { onOpenLibrary: 
         id: createEmployeeId(templateId),
         templateId,
         displayName: displayName.trim(),
-        avatar: DEFAULT_EMPLOYEE_AVATAR,
+        avatar,
         prompt: selectedPrompt,
         skills: selectedSkills.filter((name) => skills.some((skill) => skill.name === name && skill.enabled)),
       })
@@ -911,6 +931,17 @@ export default function OfficeEmployeePanel({ onOpenLibrary }: { onOpenLibrary: 
             <FormGrid>
               <FormField>{t('ui.role')}<ReadonlyBox data-employee-template>{selectedTemplate.role}</ReadonlyBox></FormField>
               <FormField>{t('ui.name')}<input data-create-employee-name placeholder={t('ui.name')} value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></FormField>
+              <FormField>
+                {t('ui.employee_appearance')}
+                <select value={avatar} onChange={(event) => setAvatar(event.currentTarget.value)}>
+                  {additionalCharacterTextures.map((texture) => (
+                    <option key={texture} value={texture}>{texture[0].toUpperCase() + texture.slice(1)}</option>
+                  ))}
+                </select>
+              </FormField>
+              <AppearancePreview>
+                <span role="img" aria-label={avatar} style={{ backgroundImage: `url("${dailyCharacterImage(avatar)}")` }} />
+              </AppearancePreview>
             </FormGrid>
             <DialogFooter>
               <QuietButton type="button" onClick={() => setCreateOpen(false)}>{t('ui.cancel')}</QuietButton>

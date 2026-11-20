@@ -1,0 +1,538 @@
+{
+  "generator": "image_gen",
+  "style": "Approved warm-wood workstation reference; image layers only, no procedural artwork",
+  "width": 1672,
+  "height": 941,
+  "screen": {
+    "x": 428,
+    "y": 82,
+    "width": 815,
+    "height": 377
+  },
+  "screenFrames": {
+    "width": 512,
+    "height": 256,
+    "count": 6,
+    "delay": 320,
+    "duration": 1920,
+    "clips": [
+      "code",
+      "document",
+      "chart",
+      "web-search",
+      "code-typing",
+      "project-brief",
+      "web-browse",
+      "code-debug",
+      "meeting-notes"
+    ]
+  },
+  "props": {
+    "tower": {
+      "x": 141,
+      "y": 35,
+      "width": 174,
+      "height": 340
+    },
+    "plant": {
+      "x": 468,
+      "y": 55,
+      "width": 281,
+      "height": 318
+    },
+    "flowers": {
+      "x": 851,
+      "y": 47,
+      "width": 284,
+      "height": 326
+    },
+    "coffee": {
+      "x": 1263,
+      "y": 104,
+      "width": 237,
+      "height": 231
+    },
+    "water": {
+      "x": 1691,
+      "y": 42,
+      "width": 135,
+      "height": 328
+    },
+    "figurine": {
+      "x": 113,
+      "y": 462,
+      "width": 198,
+      "height": 283
+    },
+    "tissueBox": {
+      "x": 416,
+      "y": 432,
+      "width": 358,
+      "height": 326
+    },
+    "deskClock": {
+      "x": 845,
+      "y": 416,
+      "width": 292,
+      "height": 358
+    },
+    "pencils": {
+      "x": 1285,
+      "y": 443,
+      "width": 180,
+      "height": 296
+    },
+    "mouse": {
+      "x": 1666,
+      "y": 487,
+      "width": 197,
+      "height": 243
+    },
+    "deskLamp": {
+      "x": 68,
+      "y": 820,
+      "width": 260,
+      "height": 342
+    },
+    "cactus": {
+      "x": 484,
+      "y": 820,
+      "width": 221,
+      "height": 342
+    },
+    "lemonTea": {
+      "x": 851,
+      "y": 820,
+      "width": 281,
+      "height": 342
+    },
+    "radio": {
+      "x": 1232,
+      "y": 820,
+      "width": 313,
+      "height": 342
+    }
+  },
+  "hands": {
+    "navy": {
+      "file": "hands",
+      "scale": 0.78,
+      "frames": {
+        "left0": {
+          "x": 60,
+          "y": 53,
+          "width": 310,
+          "height": 357,
+          "anchorX": 117,
+          "anchorY": 354
+        },
+        "left1": {
+          "x": 504,
+          "y": 75,
+          "width": 309,
+          "height": 335,
+          "anchorX": 117,
+          "anchorY": 332
+        },
+        "left2": {
+          "x": 948,
+          "y": 47,
+          "width": 309,
+          "height": 363,
+          "anchorX": 116,
+          "anchorY": 360
+        },
+        "left3": {
+          "x": 1391,
+          "y": 69,
+          "width": 310,
+          "height": 341,
+          "anchorX": 117,
+          "anchorY": 338
+        },
+        "right0": {
+          "x": 73,
+          "y": 495,
+          "width": 312,
+          "height": 359,
+          "anchorX": 194,
+          "anchorY": 356
+        },
+        "right1": {
+          "x": 516,
+          "y": 508,
+          "width": 313,
+          "height": 346,
+          "anchorX": 195,
+          "anchorY": 343
+        },
+        "right2": {
+          "x": 959,
+          "y": 495,
+          "width": 313,
+          "height": 359,
+          "anchorX": 195,
+          "anchorY": 356
+        },
+        "right3": {
+          "x": 1403,
+          "y": 495,
+          "width": 313,
+          "height": 359,
+          "anchorX": 194,
+          "anchorY": 356
+        }
+      }
+    },
+    "shirt": {
+      "file": "hands-shirt",
+      "scale": 0.78,
+      "frames": {
+        "left0": {
+          "x": 75,
+          "y": 52,
+          "width": 296,
+          "height": 358,
+          "anchorX": 98,
+          "anchorY": 355
+        },
+        "left1": {
+          "x": 518,
+          "y": 78,
+          "width": 297,
+          "height": 332,
+          "anchorX": 99,
+          "anchorY": 329
+        },
+        "left2": {
+          "x": 962,
+          "y": 47,
+          "width": 296,
+          "height": 363,
+          "anchorX": 98,
+          "anchorY": 360
+        },
+        "left3": {
+          "x": 1406,
+          "y": 78,
+          "width": 296,
+          "height": 332,
+          "anchorX": 98,
+          "anchorY": 329
+        },
+        "right0": {
+          "x": 72,
+          "y": 494,
+          "width": 299,
+          "height": 360,
+          "anchorX": 195,
+          "anchorY": 357
+        },
+        "right1": {
+          "x": 515,
+          "y": 508,
+          "width": 300,
+          "height": 346,
+          "anchorX": 195,
+          "anchorY": 343
+        },
+        "right2": {
+          "x": 959,
+          "y": 496,
+          "width": 299,
+          "height": 358,
+          "anchorX": 195,
+          "anchorY": 355
+        },
+        "right3": {
+          "x": 1403,
+          "y": 500,
+          "width": 299,
+          "height": 354,
+          "anchorX": 194,
+          "anchorY": 351
+        }
+      }
+    },
+    "hoodie": {
+      "file": "hands-hoodie",
+      "scale": 0.78,
+      "frames": {
+        "left0": {
+          "x": 73,
+          "y": 52,
+          "width": 296,
+          "height": 359,
+          "anchorX": 112,
+          "anchorY": 356
+        },
+        "left1": {
+          "x": 517,
+          "y": 79,
+          "width": 296,
+          "height": 332,
+          "anchorX": 112,
+          "anchorY": 329
+        },
+        "left2": {
+          "x": 961,
+          "y": 47,
+          "width": 296,
+          "height": 364,
+          "anchorX": 113,
+          "anchorY": 361
+        },
+        "left3": {
+          "x": 1405,
+          "y": 72,
+          "width": 297,
+          "height": 339,
+          "anchorX": 112,
+          "anchorY": 336
+        },
+        "right0": {
+          "x": 72,
+          "y": 494,
+          "width": 307,
+          "height": 360,
+          "anchorX": 189,
+          "anchorY": 357
+        },
+        "right1": {
+          "x": 517,
+          "y": 511,
+          "width": 306,
+          "height": 343,
+          "anchorX": 187,
+          "anchorY": 340
+        },
+        "right2": {
+          "x": 960,
+          "y": 494,
+          "width": 306,
+          "height": 361,
+          "anchorX": 188,
+          "anchorY": 358
+        },
+        "right3": {
+          "x": 1404,
+          "y": 499,
+          "width": 307,
+          "height": 355,
+          "anchorX": 188,
+          "anchorY": 352
+        }
+      }
+    },
+    "blouse": {
+      "file": "hands-blouse",
+      "scale": 0.78,
+      "frames": {
+        "left0": {
+          "x": 70,
+          "y": 51,
+          "width": 296,
+          "height": 359,
+          "anchorX": 103,
+          "anchorY": 356
+        },
+        "left1": {
+          "x": 513,
+          "y": 81,
+          "width": 297,
+          "height": 329,
+          "anchorX": 103,
+          "anchorY": 326
+        },
+        "left2": {
+          "x": 957,
+          "y": 48,
+          "width": 297,
+          "height": 362,
+          "anchorX": 103,
+          "anchorY": 359
+        },
+        "left3": {
+          "x": 1401,
+          "y": 79,
+          "width": 296,
+          "height": 331,
+          "anchorX": 103,
+          "anchorY": 328
+        },
+        "right0": {
+          "x": 76,
+          "y": 495,
+          "width": 299,
+          "height": 360,
+          "anchorX": 194,
+          "anchorY": 357
+        },
+        "right1": {
+          "x": 520,
+          "y": 512,
+          "width": 299,
+          "height": 343,
+          "anchorX": 193,
+          "anchorY": 340
+        },
+        "right2": {
+          "x": 964,
+          "y": 495,
+          "width": 298,
+          "height": 360,
+          "anchorX": 192,
+          "anchorY": 357
+        },
+        "right3": {
+          "x": 1407,
+          "y": 496,
+          "width": 299,
+          "height": 359,
+          "anchorX": 193,
+          "anchorY": 356
+        }
+      }
+    },
+    "cardigan": {
+      "file": "hands-cardigan",
+      "scale": 0.78,
+      "frames": {
+        "left0": {
+          "x": 72,
+          "y": 54,
+          "width": 290,
+          "height": 357,
+          "anchorX": 110,
+          "anchorY": 354
+        },
+        "left1": {
+          "x": 516,
+          "y": 83,
+          "width": 291,
+          "height": 328,
+          "anchorX": 110,
+          "anchorY": 325
+        },
+        "left2": {
+          "x": 960,
+          "y": 50,
+          "width": 289,
+          "height": 361,
+          "anchorX": 110,
+          "anchorY": 358
+        },
+        "left3": {
+          "x": 1403,
+          "y": 77,
+          "width": 291,
+          "height": 333,
+          "anchorX": 110,
+          "anchorY": 330
+        },
+        "right0": {
+          "x": 77,
+          "y": 494,
+          "width": 296,
+          "height": 363,
+          "anchorX": 182,
+          "anchorY": 360
+        },
+        "right1": {
+          "x": 519,
+          "y": 518,
+          "width": 298,
+          "height": 339,
+          "anchorX": 184,
+          "anchorY": 336
+        },
+        "right2": {
+          "x": 961,
+          "y": 494,
+          "width": 299,
+          "height": 363,
+          "anchorX": 185,
+          "anchorY": 360
+        },
+        "right3": {
+          "x": 1406,
+          "y": 501,
+          "width": 298,
+          "height": 356,
+          "anchorX": 184,
+          "anchorY": 353
+        }
+      }
+    },
+    "suit": {
+      "file": "hands-suit",
+      "scale": 0.78,
+      "frames": {
+        "left0": {
+          "x": 61,
+          "y": 42,
+          "width": 309,
+          "height": 368,
+          "anchorX": 116,
+          "anchorY": 365
+        },
+        "left1": {
+          "x": 505,
+          "y": 81,
+          "width": 309,
+          "height": 329,
+          "anchorX": 116,
+          "anchorY": 326
+        },
+        "left2": {
+          "x": 949,
+          "y": 42,
+          "width": 309,
+          "height": 368,
+          "anchorX": 116,
+          "anchorY": 365
+        },
+        "left3": {
+          "x": 1393,
+          "y": 73,
+          "width": 308,
+          "height": 337,
+          "anchorX": 115,
+          "anchorY": 334
+        },
+        "right0": {
+          "x": 72,
+          "y": 492,
+          "width": 310,
+          "height": 365,
+          "anchorX": 193,
+          "anchorY": 362
+        },
+        "right1": {
+          "x": 515,
+          "y": 511,
+          "width": 311,
+          "height": 346,
+          "anchorX": 194,
+          "anchorY": 343
+        },
+        "right2": {
+          "x": 957,
+          "y": 490,
+          "width": 312,
+          "height": 367,
+          "anchorX": 195,
+          "anchorY": 364
+        },
+        "right3": {
+          "x": 1401,
+          "y": 498,
+          "width": 313,
+          "height": 359,
+          "anchorX": 195,
+          "anchorY": 356
+        }
+      }
+    }
+  }
+}

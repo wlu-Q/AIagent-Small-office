@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-_TOOL_ID = re.compile(r'^(?:[A-Za-z0-9_-]+|mcp/[^/\s]+/[A-Za-z0-9_-]+)$')
+_TOOL_ID = re.compile(r'^(?:[A-Za-z0-9_-]+|mcp-service/[a-f0-9]{32}|mcp/[^/\s]+/[A-Za-z0-9_-]+)$')
 
 
 @dataclass(frozen=True)
